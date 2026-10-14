@@ -21,7 +21,7 @@
   </style>
 </head>
 <body>
-  <header class="topbar"><div class="topbar-inner"><div class="brand"><div class="brand-mark">e.</div><div><div class="brand-name">e.lab <span>boutique</span></div><div class="eyebrow">Lista da vez</div></div></div><div class="top-actions"><div class="live"><i></i> Dados salvos neste dispositivo</div><button class="btn" id="accessBtn">🔒 Operar listas</button></div></div></header>
+  <header class="topbar"><div class="topbar-inner"><div class="brand"><div class="brand-mark">e.</div><div><div class="brand-name">e.lab <span>boutique</span></div><div class="eyebrow">Lista da vez</div></div></div><div class="top-actions"><div class="live" id="syncStatus"><i></i> Sincronização em tempo real</div><button class="btn" id="accessBtn">🔒 Operar listas</button></div></div></header>
   <main class="page">
     <section class="hero"><div><div class="eyebrow">Distribuição de clientes</div><h1>Lista da vez</h1><p>Uma visão clara da sequência de atendimento por equipe, com lista Agora, lista Agenda e controle de presença.</p></div><div class="hero-note"><strong id="totalLists">10 listas ativas</strong>5 serviços · 2 modos de atendimento</div></section>
     <section class="panel teams" id="teamTabs"></section>
@@ -32,7 +32,13 @@
     <footer class="footer"><span>e.lab boutique · <span id="footerService">Cabeleireiros</span></span><span>Atualização local automática</span></footer>
   </main>
   <div class="modal-backdrop hidden" id="modalBackdrop"><div class="modal"><h2 id="modalTitle">Registrar atendimento</h2><p id="modalIntro"></p><div id="modalFields"></div><div class="modal-actions"><button class="btn" id="modalCancel">Cancelar</button><button class="btn primary" id="modalSave">Salvar</button></div></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script>
+    const SUPABASE_URL='https://yrmsnykdxxqomkvxqnki.supabase.co';
+    const SUPABASE_KEY='sb_publishable_nviD65C5Y-mgrj04dwEheQ_x17AjVfL';
+    const supabaseClient=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY);
+    const CLOUD_STATE_ID='lista-da-vez-principal';
+    let cloudReady=false, cloudApplying=false, cloudChannel=null;
     const TEAMS=[
       {k:'hair',n:'Cabeleireiros',d:'Cortes, escovas e finalização',services:['hair']},
       {k:'nails',n:'Manicures',d:'Manicure padrão e serviço de gel',services:['nails','gel']},
@@ -52,12 +58,17 @@
     const syncChannel='BroadcastChannel' in window ? new BroadcastChannel('elab_lista_da_vez_sync') : null;
     const $=id=>document.getElementById(id);
     function notifySync(){syncChannel?.postMessage({type:'refresh',at:Date.now()})}
-    function syncFromStorage(){load();render()}
+    function syncFromStorage(){loadLocal();render()}
     window.addEventListener('storage',e=>{if(e.key===stateKey)syncFromStorage()});
     syncChannel?.addEventListener('message',e=>{if(e.data?.type==='refresh')syncFromStorage()});
     function baseData(s){return {people:[...s.people],nextUp:s.people[0],absent:[],weeklyCount:Object.fromEntries(s.people.map(p=>[p,0])),log:[],futureQueue:structuredClone(defaultFuture[s.k]||[])} }
-    function load(){let saved={};try{saved=JSON.parse(localStorage.getItem(stateKey)||'{}')}catch{} SERVICES.forEach(s=>{app.data[s.k]={...baseData(s),...(saved[s.k]||{})};app.data[s.k].people=(Array.isArray(app.data[s.k].people)?app.data[s.k].people:[...s.people]).filter(p=>p!=='Evinho');if(s.k==='hair'&&!app.data[s.k].people.includes('Wallace'))app.data[s.k].people.push('Wallace');if(!( 'Wallace' in app.data[s.k].weeklyCount))app.data[s.k].weeklyCount.Wallace=0;if(app.data[s.k].nextUp==='Evinho')app.data[s.k].nextUp=app.data[s.k].people[0]||null;app.data[s.k].absent=app.data[s.k].absent.filter(p=>p!=='Evinho');delete app.data[s.k].weeklyCount.Evinho;app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[]});}
-    function persist(){localStorage.setItem(stateKey,JSON.stringify(app.data));notifySync()}
+    function loadLocal(){let saved={};try{saved=JSON.parse(localStorage.getItem(stateKey)||'{}')}catch{} SERVICES.forEach(s=>{app.data[s.k]={...baseData(s),...(saved[s.k]||{})};app.data[s.k].people=(Array.isArray(app.data[s.k].people)?app.data[s.k].people:[...s.people]).filter(p=>p!=='Evinho');if(s.k==='hair'&&!app.data[s.k].people.includes('Wallace'))app.data[s.k].people.push('Wallace');if(!( 'Wallace' in app.data[s.k].weeklyCount))app.data[s.k].weeklyCount.Wallace=0;if(app.data[s.k].nextUp==='Evinho')app.data[s.k].nextUp=app.data[s.k].people[0]||null;app.data[s.k].absent=app.data[s.k].absent.filter(p=>p!=='Evinho');delete app.data[s.k].weeklyCount.Evinho;app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[]});}
+    function setSyncLabel(text,online=true){const el=$('syncStatus');if(el){el.innerHTML=`<i></i> ${text}`;el.style.color=online?'#6f5b53':'#9e615d'}}
+    function normalizeCloudData(data){if(!data||typeof data!=='object')return false;SERVICES.forEach(s=>{const incoming=data[s.k];if(incoming&&typeof incoming==='object'){app.data[s.k]={...baseData(s),...incoming};app.data[s.k].people=Array.isArray(app.data[s.k].people)?app.data[s.k].people:[...s.people];app.data[s.k].absent=Array.isArray(app.data[s.k].absent)?app.data[s.k].absent:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[];app.data[s.k].log=Array.isArray(app.data[s.k].log)?app.data[s.k].log:[];app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[]}});return true}
+    async function load(){loadLocal();if(!supabaseClient){setSyncLabel('Modo local',false);return}try{const {data,error}=await supabaseClient.from('elab_state').select('data').eq('id',CLOUD_STATE_ID).maybeSingle();if(error)throw error;if(data?.data&&Object.keys(data.data).length){cloudApplying=true;normalizeCloudData(data.data);cloudApplying=false;localStorage.setItem(stateKey,JSON.stringify(app.data));cloudReady=true;setSyncLabel('Sincronizado em tempo real')}else{cloudReady=true;await supabaseClient.from('elab_state').upsert({id:CLOUD_STATE_ID,data:app.data,updated_at:new Date().toISOString()});setSyncLabel('Sincronizado em tempo real')}}catch(err){console.warn('Supabase indisponível',err);setSyncLabel('Modo local · aguardando conexão',false)}}
+    async function persist(){localStorage.setItem(stateKey,JSON.stringify(app.data));notifySync();if(!supabaseClient||!cloudReady||cloudApplying)return;try{const {error}=await supabaseClient.from('elab_state').upsert({id:CLOUD_STATE_ID,data:app.data,updated_at:new Date().toISOString()});if(error)throw error;setSyncLabel('Sincronizado em tempo real')}catch(err){console.warn('Falha ao sincronizar',err);setSyncLabel('Não sincronizado · tentando novamente',false)}}
+    function startRealtime(){if(!supabaseClient)return;cloudChannel=supabaseClient.channel('elab-state-live').on('postgres_changes',{event:'*',schema:'public',table:'elab_state',filter:`id=eq.${CLOUD_STATE_ID}`},payload=>{if(payload.new?.data){cloudApplying=true;normalizeCloudData(payload.new.data);cloudApplying=false;localStorage.setItem(stateKey,JSON.stringify(app.data));render();setSyncLabel('Sincronizado em tempo real')}}).subscribe(status=>{if(status==='SUBSCRIBED')setSyncLabel('Sincronizado em tempo real');if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncLabel('Conexão instável · tentando',false)})}
+
     function svc(){const s=SERVICES.find(s=>s.k===app.service);return {...s,people:app.data[app.service]?.people||s.people}}
     function cs(){return app.data[app.service]}
     function present(s=svc()){return s.people.filter(p=>!cs().absent.includes(p))}
