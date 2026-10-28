@@ -11,6 +11,7 @@
     const start=Math.max(0,available.indexOf(state.nextUp));
     return available.slice(start).concat(available.slice(0,start));
   }
+  function inverseOrder(state){return order(state).slice().reverse()}
   function nextAfter(state, person){
     const available=eligible(state), people=unique(state.people);
     if(!available.length)return null;
@@ -23,10 +24,12 @@
     const next={...state, people:unique(state.people), absent:unique(state.absent), occupied:unique(state.occupied)};
     const person=event.person;
     if(event.type==='status'){
+      const wasAbsent=next.absent.includes(person);
       next.absent=next.absent.filter(p=>p!==person); next.occupied=next.occupied.filter(p=>p!==person);
       if(event.to==='absent') next.absent.push(person);
       if(event.to==='occupied') next.occupied.push(person);
       if(event.to==='absent' && next.nextUp===person) next.nextUp=nextAfter(next,person);
+      if(event.to==='present' && wasAbsent && next.nextUp===person) next.nextUp=nextAfter(next,person);
       // Occupation preserves nextUp: returning staff retain their place.
     }
     if(event.type==='pass' || event.type==='attendance'){
@@ -34,5 +37,5 @@
     }
     return next;
   }
-  root.QueueLogic={unique,eligible,order,nextAfter,transition};
+  root.QueueLogic={unique,eligible,order,inverseOrder,nextAfter,transition};
 })(typeof window!=='undefined'?window:globalThis);
