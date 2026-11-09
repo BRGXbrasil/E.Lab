@@ -47,3 +47,9 @@ test("a interface da fila mantém ausentes e ocupados visíveis", () => {
   assert.match(source, /\[\.\.\.currentOrder, \.\.\.inactivePeople\]/);
   assert.match(source, /disabled=\{!eligible\}/);
 });
+
+test("a visão geral não entrega dados da Recepção a todos os setores", () => {
+  const source = read("../server/routers/operations.ts");
+  assert.match(source, /canSeeReceptionData = \["admin", "manager", "reception"\]/);
+  assert.doesNotMatch(source, /role === "manager" \|\| role === "professional"/);
+});
