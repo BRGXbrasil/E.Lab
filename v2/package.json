@@ -11,6 +11,8 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:catalog": "node --test tests/cronogramas.test.mjs",
+    "test:hybrid": "node --test hybrid/hybrid.test.mjs",
+    "start:hybrid": "node hybrid/server.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:migrate": "drizzle-kit migrate",
     "dev:static": "vite --host 0.0.0.0 --port ${PORT:-3000} --strictPort",
