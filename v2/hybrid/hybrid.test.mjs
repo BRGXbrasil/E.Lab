@@ -59,6 +59,9 @@ test("events are transactional, audit-stamped, idempotent and role-checked", asy
   assert.deepEqual(await recordTaskEvent(db, actor, input), { changed: false, completed: true });
   assert.ok(!queries.includes("commit"));
   await assert.rejects(recordTaskEvent(db, { ...actor, role: "reception" }, input), { status: 403 });
+  existing = [];
+  assert.equal((await recordTaskEvent(db, actor, { ...input, taskId: "drive-stock-01" }, () => "catalog-event")).changed, true);
+  await assert.rejects(recordTaskEvent(db, actor, { ...input, taskId: "not-a-real-task" }), { status: 400 });
 });
 
 test("HTTP API blocks anonymous and non-member access", async () => {
