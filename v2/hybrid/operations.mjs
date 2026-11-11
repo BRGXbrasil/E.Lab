@@ -18,7 +18,7 @@ export async function listTasks(db, actor) {
 }
 
 export async function recordTaskEvent(db, actor, input, idFactory = randomUUID) {
-  if (!/^[0-9a-f-]{36}$/i.test(input?.taskId || "") || !["completed", "reopened"].includes(input?.eventType)) {
+  if (typeof input?.taskId !== "string" || !/^(?:[0-9a-f]{8}-[0-9a-f-]{27,}|drive-(?:reception|stock|cleaning)-\d{2})$/i.test(input.taskId) || !["completed", "reopened"].includes(input?.eventType)) {
     throw Object.assign(new Error("Evento inválido"), { status: 400 });
   }
   const businessDate = validateBusinessDate(input.businessDate);
