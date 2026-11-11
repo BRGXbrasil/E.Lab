@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E.Lab — Rotinas Operacionais</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#302923;background:#faf8f5}body{max-width:900px;margin:2rem auto;padding:0 1rem}
+h1{font-size:1.8rem} .panel{background:white;border:1px solid #ddd5cc;border-radius:14px;padding:1.1rem;margin:1rem 0}
+input,button{font:inherit;padding:.65rem;border-radius:8px;border:1px solid #b7afa4}button{cursor:pointer;background:#40372e;color:white}
+button:disabled{opacity:.5;cursor:not-allowed}.task{display:flex;justify-content:space-between;align-items:center;gap:1rem;border-top:1px solid #eee;padding:.85rem 0}
+small,.muted{color:#6e6760}.task:first-child{border:0}.task strong{display:block}form{display:flex;gap:.6rem;flex-wrap:wrap}
+#logout{float:right}.hidden{display:none}.err{color:#a22828}#state{min-height:1.4em}
+</style></head>
+<body><header><h1>E.Lab — Rotinas Operacionais</h1><p class="muted">Acesso individual com Supabase Auth. A Lista da Vez existente não é modificada.</p></header>
+<section class="panel" id="signin"><h2>Entrar</h2><form id="login"><input id="email" type="email" required autocomplete="username" placeholder="E-mail"><input id="password" type="password" required autocomplete="current-password" placeholder="Senha"><button>Entrar</button></form></section>
+<section class="panel hidden" id="workspace"><button id="logout" type="button">Sair</button><h2>Rotinas</h2><p id="who"></p><label>Data operacional <input id="date" type="date"></label><button id="refresh" type="button">Atualizar</button><div id="tasks"></div></section>
+<p id="state" role="status"></p>
+<script type="module">
+import {createClient} from "https://esm.sh/@supabase/supabase-js@2.76.1";
+const supabaseUrl="https://yrmsnykdxxqomkvxqnki.supabase.co";
+const publishableKey="sb_publishable_nviD65C5Y-mgrj04dwEheQ_x17AjVfL";
+const client=createClient(supabaseUrl,publishableKey);
+const $=id=>document.getElementById(id);
+const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+$("date").value=today();
+function status(message,isError=false){$("state").textContent=message;$("state").className=isError?"err":"";}
+async function session(){return (await client.auth.getSession()).data.session;}
+async function api(method,body){const s=await session();if(!s)throw Error("Sessão expirada");const res=await fetch(supabaseUrl+"/functions/v1/operational",{
+method,headers:{authorization:"Bearer "+s.access_token,apikey:publishableKey,...(body?{"content-type":"application/json"}:{})},body:body?JSON.stringify(body):undefined
+});const json=await res.json().catch(()=>({error:"Erro de resposta"}));if(!res.ok)throw Error(json.error||"Falha de operação");return json;}
+async function load(){status("Consultando...");$("tasks").replaceChildren();try{
+const data=await api("GET");$("who").textContent="Permissão: "+data.role;
+for(const task of data.tasks){const item=document.createElement("div");item.className="task";const info=document.createElement("div");const heading=document.createElement("strong");heading.textContent=task.title;const details=document.createElement("small");details.textContent=task.area+" • "+task.cadence+" • "+task.when_text;info.append(heading,details);
+const controls=document.createElement("div");for(const [label,eventType] of [["Concluir","completed"],["Reabrir","reopened"]]){const btn=document.createElement("button");btn.type="button";btn.textContent=label;btn.onclick=async()=>{btn.disabled=true;try{const result=await api("POST",{taskId:task.id,businessDate:$("date").value,eventType});status(result.changed?"Evento registrado":"Situação já registrada");}catch(e){status(e.message,true);}finally{btn.disabled=false;}};controls.append(btn);}item.append(info,controls);$("tasks").append(item);}
+if(!data.tasks.length)status("Nenhuma rotina ativa para este operador.");else status(data.tasks.length+" rotinas disponíveis.");
+}catch(e){status(e.message,true);}}
+async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);if(s)await load();}
+$("login").onsubmit=async e=>{e.preventDefault();status("Autenticando...");const {error}=await client.auth.signInWithPassword({email:$("email").value,password:$("password").value});if(error){status("Não foi possível entrar.",true);return;}await refresh();};
+$("logout").onclick=async()=>{await client.auth.signOut();await refresh();status("Sessão encerrada.");};
+$("refresh").onclick=load;await refresh();
+</script></body></html>
