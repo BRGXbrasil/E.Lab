@@ -40,11 +40,15 @@ Deno.serve(async (req: Request) => {
       if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return reply(400, { error: "Invalid date" });
       let events: unknown[] = [];
       if (date) {
+        const monthStart=date.slice(0,7)+"-01";
+        const [year,month]=date.slice(0,7).split("-").map(Number);
+        const monthEnd=new Date(Date.UTC(year,month,1)).toISOString().slice(0,10);
         const outcome=await db.from("elab_ops_events")
-          .select("task_id,event_type,event_order").eq("business_date",date).order("event_order",{ascending:false}).limit(3000);
+          .select("task_id,event_type,event_order,business_date")
+          .gte("business_date",monthStart).lt("business_date",monthEnd)
+          .order("event_order",{ascending:false}).limit(3000);
         if(outcome.error)return reply(503,{error:"Event lookup failed"});
-        const seen=new Set<string>();
-        events=(outcome.data??[]).filter(e=>{if(seen.has(e.task_id))return false;seen.add(e.task_id);return true;});
+        events=outcome.data??[];
       }
       return reply(200, { tasks: data ?? [], events, role: member.role });
     }
@@ -55,7 +59,7 @@ Deno.serve(async (req: Request) => {
       try { body = JSON.parse(raw); } catch { return reply(400, { error: "Malformed JSON" }); }
       if (typeof body.taskId !== "string" || body.taskId.length > 36 ||
           typeof body.businessDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(body.businessDate) ||
-          !["completed", "reopened"].includes(String(body.eventType)) ||
+          !["completed", "reopened", "occurred"].includes(String(body.eventType)) ||
           (body.note != null && (typeof body.note !== "string" || body.note.length > 2000))) {
         return reply(400, { error: "Invalid event" });
       }
