@@ -37,20 +37,61 @@ async function session(){return (await client.auth.getSession()).data.session;}
 async function api(method,body){const s=await session();if(!s)throw Error("Sessão expirada");const res=await fetch(supabaseUrl+"/functions/v1/operational"+(method==="GET"?"?date="+encodeURIComponent($("date").value):""),{
 method,headers:{authorization:"Bearer "+s.access_token,apikey:publishableKey,...(body?{"content-type":"application/json"}:{})},body:body?JSON.stringify(body):undefined
 });const json=await res.json().catch(()=>({error:"Erro de resposta"}));if(!res.ok)throw Error(json.error||"Falha de operação");return json;}
-function isDue(task,date){const d=new Date(date+"T12:00:00");if(!Number.isFinite(d.getTime()))return false;
-const day=d.getDay();if(task.cadence==="daily")return true;
-if(task.cadence==="weekly"||task.cadence==="three_per_week")return Array.isArray(task.weekdays)&&task.weekdays.includes(day);
-if(task.cadence==="monthly")return Number(task.day_of_month)===d.getDate();
-return false;}
-async function load(){status("Consultando...");$("tasks").replaceChildren();try{
-const selected=$("date").value;if(!/^\d{4}-\d{2}-\d{2}$/.test(selected))throw Error("Informe uma data válida.");
-const data=await api("GET");$("who").textContent="Permissão: "+data.role;
-const tasks=(data.tasks??[]).filter(t=>isDue(t,selected));const latest=new Map((data.events??[]).map(e=>[e.task_id,e.event_type]));let done=0;
-for(const task of tasks){const completed=latest.get(task.id)==="completed";if(completed)done++;const item=document.createElement("div");item.className="task";const info=document.createElement("div");const heading=document.createElement("strong");heading.textContent=task.title;const details=document.createElement("small");details.textContent=task.area+" • "+task.when_text+" • "+(completed?"Concluída":"Pendente");info.append(heading,details);
-const btn=document.createElement("button");btn.type="button";btn.textContent=completed?"Reabrir":"Concluir";btn.onclick=async()=>{btn.disabled=true;try{const result=await api("POST",{taskId:task.id,businessDate:selected,eventType:completed?"reopened":"completed"});await load();if(!result.changed)status("Situação já registrada.");}catch(e){status(e.message,true);btn.disabled=false;}};
-item.append(info,btn);$("tasks").append(item);}
-status(tasks.length?done+" de "+tasks.length+" rotinas concluídas em "+selected:"Nenhuma rotina programada para "+selected);
-}catch(e){status(e.message,true);}}
+function isDue(task,date){
+ const d=new Date(date+"T12:00:00");if(!Number.isFinite(d.getTime()))return false;
+ const day=d.getDay();if(task.cadence==="daily")return true;
+ if(task.cadence==="weekly"||task.cadence==="three_per_week")return Array.isArray(task.weekdays)&&task.weekdays.includes(day);
+ if(task.cadence==="monthly")return task.day_of_month==null||Number(task.day_of_month)===d.getDate();
+ return false;
+}
+function titleRow(text){const el=document.createElement("h3");el.textContent=text;return el;}
+async function load(){
+ status("Consultando...");$("tasks").replaceChildren();
+ try{
+  const selected=$("date").value;if(!/^\d{4}-\d{2}-\d{2}$/.test(selected))throw Error("Informe uma data válida.");
+  const data=await api("GET");$("who").textContent="Permissão: "+data.role;
+  const tasks=(data.tasks??[]).filter(t=>isDue(t,selected));
+  const occurrences=(data.tasks??[]).filter(t=>t.cadence==="on_demand");
+  const eventByTask=new Map(),occurrenceCount=new Map();
+  const taskLookup=new Map((data.tasks??[]).map(t=>[t.id,t]));
+  for(const event of data.events??[]){
+   const task=taskLookup.get(event.task_id);if(!task)continue;
+   if(task.cadence==="on_demand"){
+    if(event.business_date===selected && event.event_type==="occurred")occurrenceCount.set(task.id,(occurrenceCount.get(task.id)??0)+1);
+   } else if((task.cadence==="monthly"&&task.day_of_month==null)||event.business_date===selected){
+    if(!eventByTask.has(task.id))eventByTask.set(task.id,event.event_type);
+   }
+  }
+  const list=$("tasks");list.append(titleRow("Rotinas previstas"));
+  let done=0;
+  for(const task of tasks){
+   const completed=eventByTask.get(task.id)==="completed";if(completed)done++;
+   const item=document.createElement("div");item.className="task";
+   const info=document.createElement("div");const heading=document.createElement("strong");heading.textContent=task.title;
+   const details=document.createElement("small");details.textContent=task.area+" • "+task.when_text+(task.cadence==="monthly"&&task.day_of_month==null?" • Janela mensal flexível":"")+" • "+(completed?"Concluída":"Pendente");
+   info.append(heading,details);
+   const btn=document.createElement("button");btn.type="button";btn.textContent=completed?"Reabrir":"Concluir";
+   btn.onclick=async()=>{btn.disabled=true;try{await api("POST",{taskId:task.id,businessDate:selected,eventType:completed?"reopened":"completed"});await load();}catch(e){status(e.message,true);btn.disabled=false;}};
+   item.append(info,btn);list.append(item);
+  }
+  if(!tasks.length){const p=document.createElement("p");p.textContent="Nenhuma rotina prevista nesta data.";list.append(p);}
+  if(occurrences.length){
+   list.append(titleRow("Atividades por ocorrência"));
+   for(const task of occurrences){
+    const item=document.createElement("div");item.className="task";
+    const info=document.createElement("div"),heading=document.createElement("strong"),details=document.createElement("small");
+    heading.textContent=task.title;
+    details.textContent=task.when_text+" • "+(occurrenceCount.get(task.id)??0)+" registro(s) nesta data";
+    const note=document.createElement("input");note.type="text";note.maxLength=2000;note.placeholder="Detalhes da ocorrência (opcional)";
+    note.setAttribute("aria-label","Detalhes da ocorrência");info.append(heading,details,note);
+    const btn=document.createElement("button");btn.type="button";btn.textContent="Registrar";
+    btn.onclick=async()=>{btn.disabled=true;try{await api("POST",{taskId:task.id,businessDate:selected,eventType:"occurred",note:note.value});await load();}catch(e){status(e.message,true);btn.disabled=false;}};
+    item.append(info,btn);list.append(item);
+   }
+  }
+  status(done+" de "+tasks.length+" rotinas previstas concluídas em "+selected);
+ }catch(e){status(e.message,true);}
+}
 const directions=new Set(["owner","director","admin","hr"]);
 function cell(row,text){const td=document.createElement("td");td.textContent=String(text??"—");row.append(td);}
 function summary(label,value){const el=document.createElement("div");el.className="metric";const b=document.createElement("b"),small=document.createElement("small");b.textContent=String(value??0);small.textContent=label;el.append(b,small);return el;}
