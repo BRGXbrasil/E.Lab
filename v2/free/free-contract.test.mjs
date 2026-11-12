@@ -20,7 +20,7 @@ test("migration protects existing queue state and enforces RLS",()=>{
 test("browser never receives privileged credentials",()=>{
  const html=read("./index.html");
  assert.doesNotMatch(html,/service_role|SUPABASE_SERVICE_ROLE|DATABASE_URL|MYSQL_ROOT_PASSWORD/i);
- assert.match(html,/signInWithPassword/);
+ assert.match(html,/functions\\/v1\\/elab-login/);
  assert.match(html,/America\/Sao_Paulo/);
 });
 test("Edge API authenticates the user and defers authorization to RLS",()=>{
