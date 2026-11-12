@@ -8,10 +8,21 @@ input,button{font:inherit;padding:.65rem;border-radius:8px;border:1px solid #b7a
 button:disabled{opacity:.5;cursor:not-allowed}.task{display:flex;justify-content:space-between;align-items:center;gap:1rem;border-top:1px solid #eee;padding:.85rem 0}
 small,.muted{color:#6e6760}.task:first-child{border:0}.task strong{display:block}form{display:flex;gap:.6rem;flex-wrap:wrap}
 #logout{float:right}.hidden{display:none}.err{color:#a22828}#state{min-height:1.4em}
+.dashboard-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:.6rem;margin:1rem 0}.metric{background:#f7f3ef;padding:1rem;border-radius:10px}.metric b{display:block;font-size:1.5rem}.metric small{display:block}
+table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1px solid #e5ddd5;text-align:left;padding:.6rem;word-break:break-word}.scroll{overflow-x:auto}.dashboard-link{display:inline-block;margin:.5rem 0;color:#443326}
 </style></head>
 <body><header><h1>E.Lab — Rotinas Operacionais</h1><p class="muted">Acesso individual com Supabase Auth. A Lista da Vez existente não é modificada.</p></header>
 <section class="panel" id="signin"><h2>Entrar</h2><form id="login"><input id="username" type="text" required autocomplete="username" autocapitalize="none" placeholder="Usuário" maxlength="80"><input id="password" type="password" required autocomplete="current-password" placeholder="Senha"><button>Entrar</button></form></section>
 <section class="panel hidden" id="workspace"><button id="logout" type="button">Sair</button><h2>Rotinas</h2><p id="who"></p><label>Data operacional <input id="date" type="date"></label><button id="refresh" type="button">Atualizar</button><div id="tasks"></div></section>
+<section class="panel hidden" id="direction"><h2>Painel da Direção</h2>
+<p class="muted">Visão geral de acessos, rotinas e registros. Somente usuários autorizados visualizam este painel.</p>
+<div class="dashboard-metrics" id="metrics"></div>
+<h3>Setores</h3><div id="areas"></div>
+<h3>Contas existentes</h3><div class="scroll"><table><thead><tr><th>Conta</th><th>Função</th><th>Acesso</th></tr></thead><tbody id="registered"></tbody></table></div>
+<h3>Equipe cadastrada</h3><div class="scroll"><table><thead><tr><th>Nome</th><th>Função</th><th>Vínculo</th></tr></thead><tbody id="staff"></tbody></table></div>
+<h3>Registros operacionais</h3><div id="activities" class="muted"></div>
+<a class="dashboard-link" href="https://yrmsnykdxxqomkvxqnki.supabase.co/functions/v1/elab-lista-da-vez" target="_blank" rel="noopener">Lista da Vez — consulta</a>
+<button type="button" id="refresh-dashboard">Atualizar painel</button></section>
 <p id="state" role="status"></p>
 <script type="module">
 import {createClient} from "https://esm.sh/@supabase/supabase-js@2.76.1";
@@ -32,8 +43,25 @@ for(const task of data.tasks){const item=document.createElement("div");item.clas
 const controls=document.createElement("div");for(const [label,eventType] of [["Concluir","completed"],["Reabrir","reopened"]]){const btn=document.createElement("button");btn.type="button";btn.textContent=label;btn.onclick=async()=>{btn.disabled=true;try{const result=await api("POST",{taskId:task.id,businessDate:$("date").value,eventType});status(result.changed?"Evento registrado":"Situação já registrada");}catch(e){status(e.message,true);}finally{btn.disabled=false;}};controls.append(btn);}item.append(info,controls);$("tasks").append(item);}
 if(!data.tasks.length)status("Nenhuma rotina ativa para este operador.");else status(data.tasks.length+" rotinas disponíveis.");
 }catch(e){status(e.message,true);}}
-async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);if(s)await load();}
+const directions=new Set(["owner","director","admin","hr"]);
+function cell(row,text){const td=document.createElement("td");td.textContent=String(text??"—");row.append(td);}
+function summary(label,value){const el=document.createElement("div");el.className="metric";const b=document.createElement("b"),small=document.createElement("small");b.textContent=String(value??0);small.textContent=label;el.append(b,small);return el;}
+async function dashboard(role){
+ const enabled=directions.has(role);$("direction").classList.toggle("hidden",!enabled);if(!enabled)return;
+ const [metrics,accounts,roster]=await Promise.all([
+ client.rpc("elab_ops_dashboard"),client.rpc("elab_ops_admin_users"),client.rpc("elab_ops_staff_directory_list")
+ ]);
+ if(metrics.error||accounts.error||roster.error){status("Falha ao consultar dados da direção.",true);return;}
+ const d=metrics.data??{};const container=$("metrics");container.replaceChildren();
+ for(const [label,key] of [["Rotinas","totalTasks"],["Ativas","activeTasks"],["Registros","totalEvents"],["Concluídas","completedEvents"],["Reaberturas","reopenedEvents"],["Contas","totalAccounts"],["Operadores vinculados","assignedOperators"],["Equipe pendente","pendingStaff"],["Estados da Lista da Vez","queueStateRows"]])container.append(summary(label,d[key]));
+ const a=$("areas");a.replaceChildren();for(const area of d.areas??[]){const p=document.createElement("p");p.textContent=area.area+": "+area.active+" ativas / "+area.tasks+" totais";a.append(p);}
+ $("registered").replaceChildren();for(const entry of accounts.data??[]){const tr=document.createElement("tr");cell(tr,entry.email);cell(tr,entry.role??"Pendente");cell(tr,entry.active?"Ativo":"Sem função ativa");$("registered").append(tr);}
+ $("staff").replaceChildren();for(const person of roster.data??[]){const tr=document.createElement("tr");cell(tr,person.display_name);cell(tr,person.proposed_role);cell(tr,person.account_email??"Ainda não vinculado");$("staff").append(tr);}
+ const log=$("activities");log.replaceChildren();for(const a of d.operatorActivity??[]){const p=document.createElement("p");const known=(accounts.data??[]).find(x=>x.user_id===a.actorId);p.textContent=(known?.email??a.actorId)+": "+a.events+" eventos";log.append(p);}if(!(d.operatorActivity??[]).length)log.textContent="Nenhum evento operacional registrado.";
+}
+
+async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();if(data?.role)await dashboard(data.role);}}
 $("login").onsubmit=async e=>{e.preventDefault();status("Autenticando...");try{const res=await fetch(supabaseUrl+"/functions/v1/elab-login",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username:$("username").value,password:$("password").value})});const payload=await res.json();if(!res.ok||!payload.access_token||!payload.refresh_token){status("Usuário ou senha inválidos.",true);return;}const {error}=await client.auth.setSession({access_token:payload.access_token,refresh_token:payload.refresh_token});if(error){status("Não foi possível iniciar a sessão.",true);return;}$("password").value="";await refresh();}catch{status("Serviço de login indisponível.",true);}};
 $("logout").onclick=async()=>{await client.auth.signOut();await refresh();status("Sessão encerrada.");};
-$("refresh").onclick=load;await refresh();
+$("refresh").onclick=load;$("refresh-dashboard").onclick=refresh;await refresh();
 </script></body></html>
