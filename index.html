@@ -35,7 +35,18 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1
 <input id="reset-password" type="password" required minlength="12" placeholder="Nova senha" autocomplete="new-password">
 <input id="reset-code" type="text" required minlength="64" maxlength="64" placeholder="Código de recuperação">
 <button type="submit">Salvar nova senha</button><button type="button" id="close-reset">Cancelar</button></form></section>
-<section class="panel hidden" id="workspace"><button id="logout" type="button">Sair</button><h2>Rotinas</h2><p id="who"></p><label>Data operacional <input id="date" type="date"></label><button id="refresh" type="button">Atualizar</button><div id="completion" class="completion-card" aria-live="polite"></div><div id="tasks"></div></section>
+<section class="panel hidden" id="workspace"><button id="logout" type="button">Sair</button><h2>Rotinas</h2><p id="who"></p><label>Data operacional <input id="date" type="date"></label><button id="refresh" type="button">Atualizar</button><div id="completion" class="completion-card" aria-live="polite"></div><div id="tasks"></div>
+<details class="panel" id="change-password" style="margin-top:1.2rem">
+<summary style="cursor:pointer;font-weight:650">Segurança da conta · Alterar minha senha</summary>
+<p class="muted">A troca é realizada diretamente no Supabase Auth com sua sessão autenticada. A senha não é salva nesta página.</p>
+<form id="change-password-form" autocomplete="on">
+<input id="current-password" type="password" autocomplete="current-password" placeholder="Senha atual (se exigida pelo servidor)" minlength="1" aria-label="Senha atual">
+<input id="new-account-password" type="password" autocomplete="new-password" placeholder="Nova senha (12+ caracteres, número e símbolo)" minlength="12" maxlength="128" required aria-label="Nova senha">
+<input id="confirm-account-password" type="password" autocomplete="new-password" placeholder="Confirmar nova senha" minlength="12" maxlength="128" required aria-label="Confirmar nova senha">
+<button type="submit">Atualizar minha senha</button>
+</form>
+<p id="password-change-result" role="status" class="muted"></p>
+</details></section>
 <section class="panel hidden" id="direction"><h2>Painel da Direção</h2>
 <p class="muted">Visão geral de acessos, rotinas e registros. Somente usuários autorizados visualizam este painel.</p>
 <section class="panel"><h3>Presença de toda a equipe</h3><p class="muted">Marque a situação de cada profissional na data selecionada. Os registros são compartilhados no servidor.</p><div id="presence-list" class="presence-list"></div></section><div class="dashboard-metrics" id="metrics"></div>
@@ -199,6 +210,27 @@ $("registration-form").onsubmit=async e=>{e.preventDefault();status("Criando ace
 try{const response=await fetch(supabaseUrl+"/functions/v1/elab-register",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username,password,inviteCode})});const result=await response.json();if(!response.ok||!result.ok){status(result.error??"Convite não autorizado.",true);return;}$("registration").classList.add("hidden");$("username").value=username;$("password").value=password;$("new-password").value="";$("new-code").value="";status("Acesso criado. Entrando...");$("login").requestSubmit();}catch{status("Serviço de cadastro indisponível.",true);}finally{btn.disabled=false;}
 };
 $("login").onsubmit=async e=>{e.preventDefault();status("Autenticando...");try{const res=await fetch(supabaseUrl+"/functions/v1/elab-login",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username:$("username").value,password:$("password").value})});const payload=await res.json();if(!res.ok||!payload.access_token||!payload.refresh_token){status("Usuário ou senha inválidos.",true);return;}const {error}=await client.auth.setSession({access_token:payload.access_token,refresh_token:payload.refresh_token});if(error){status("Não foi possível iniciar a sessão.",true);return;}$("password").value="";await refresh();}catch{status("Serviço de login indisponível.",true);}};
+$("change-password-form").onsubmit=async e=>{
+ e.preventDefault();
+ const form=$("change-password-form"),button=form.querySelector('button[type="submit"]');
+ const currentPassword=$("current-password").value,newPassword=$("new-account-password").value,confirmation=$("confirm-account-password").value;
+ const feedback=$("password-change-result");feedback.textContent="";
+ if(newPassword!==confirmation){feedback.textContent="As duas senhas não coincidem.";return;}
+ if(newPassword.length<12||newPassword.length>128||!/[A-Za-zÀ-ÿ]/.test(newPassword)||!/\d/.test(newPassword)||!/[^\w\s]/.test(newPassword)){
+   feedback.textContent="Use pelo menos 12 caracteres, incluindo letra, número e símbolo.";return;
+ }
+ button.disabled=true;
+ try{
+   const current=await session();if(!current)throw Error("Entre na sua conta antes de alterar a senha.");
+   const payload={password:newPassword};
+   if(currentPassword)payload.current_password=currentPassword;
+   const {error}=await client.auth.updateUser(payload);
+   if(error)throw error;
+   feedback.textContent="Senha alterada com sucesso. Use a nova senha no próximo acesso.";
+   form.reset();
+ }catch(err){feedback.textContent="Não foi possível alterar a senha: "+err.message+". Se necessário, utilize a recuperação com código autorizado.";}
+ finally{button.disabled=false;}
+};
 $("logout").onclick=async()=>{await client.auth.signOut();await refresh();status("Sessão encerrada.");};
 $("refresh").onclick=load;$("date").onchange=async()=>{await load();const current=await session();if(current){const {data}=await client.from("elab_ops_members").select("role").eq("user_id",current.user.id).eq("active",true).maybeSingle();if(data?.role&&directions.has(data.role))await loadPresence(data.role);}};$("refresh-dashboard").onclick=refresh;await refresh();
 </script></body></html>
