@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1788785580464,
+      "tag": "0000_initial_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1794195262513,
+      "tag": "0001_elab_unified_operations",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794195262514,
+      "tag": "0002_operational_catalog_staging",
+      "breakpoints": true
+    }
+  ]
+}

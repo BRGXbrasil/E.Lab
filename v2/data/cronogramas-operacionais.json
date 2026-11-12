@@ -1,0 +1,740 @@
+{
+  "schemaVersion": 2,
+  "status": "approved_for_staging",
+  "confirmedOn": "2026-11-09",
+  "dataPolicy": "Sem dados pessoais, IDs privados do Drive ou registros de execução.",
+  "counts": {
+    "total": 59,
+    "reception": 9,
+    "stock": 16,
+    "cleaning": 34
+  },
+  "schedules": {
+    "stockDay15": "monthly",
+    "cleaningHeavy": "monday",
+    "cleaningThreePerWeek": [
+      "tuesday",
+      "thursday",
+      "saturday"
+    ]
+  },
+  "routines": [
+    {
+      "id": "drive-reception-01",
+      "area": "reception",
+      "cadence": "daily",
+      "title": "Conferir Vez",
+      "when": "Início do dia",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 2
+    },
+    {
+      "id": "drive-reception-02",
+      "area": "reception",
+      "cadence": "daily",
+      "title": "Atualizar Ausência",
+      "when": "Início do dia",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 6
+    },
+    {
+      "id": "drive-reception-03",
+      "area": "reception",
+      "cadence": "daily",
+      "title": "Retomar Conversão",
+      "when": "Durante o dia",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 10
+    },
+    {
+      "id": "drive-reception-04",
+      "area": "reception",
+      "cadence": "daily",
+      "title": "Atualizar Não atendida",
+      "when": "Final da tarde",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 14
+    },
+    {
+      "id": "drive-reception-05",
+      "area": "reception",
+      "cadence": "daily",
+      "title": "Atualizar ativações",
+      "when": "Final da tarde",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 18
+    },
+    {
+      "id": "drive-reception-06",
+      "area": "reception",
+      "cadence": "daily",
+      "title": "Atualizar ocorrências",
+      "when": "Final da tarde",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 22
+    },
+    {
+      "id": "drive-reception-07",
+      "area": "reception",
+      "cadence": "daily",
+      "title": "Confirmação agenda",
+      "when": "Final da tarde",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 26
+    },
+    {
+      "id": "drive-reception-08",
+      "area": "reception",
+      "cadence": "weekly",
+      "title": "Limpeza das vitrines",
+      "when": "Terça-feira",
+      "weekdays": [
+        2
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 30
+    },
+    {
+      "id": "drive-reception-09",
+      "area": "reception",
+      "cadence": "weekly",
+      "title": "Inventário de revenda",
+      "when": "Quarta-feira",
+      "weekdays": [
+        3
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "reception",
+      "sourceRow": 31
+    },
+    {
+      "id": "drive-stock-01",
+      "area": "stock",
+      "cadence": "daily",
+      "title": "Reposição do estoque",
+      "when": "Início do dia",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 3
+    },
+    {
+      "id": "drive-stock-02",
+      "area": "stock",
+      "cadence": "daily",
+      "title": "Conferir itens zerados ou abaixo do mínimo",
+      "when": "Início do dia",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 4
+    },
+    {
+      "id": "drive-stock-03",
+      "area": "stock",
+      "cadence": "daily",
+      "title": "Lançamento Total de comandas",
+      "when": "Durante o dia",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 5
+    },
+    {
+      "id": "drive-stock-04",
+      "area": "stock",
+      "cadence": "daily",
+      "title": "Limpeza e organização do estoque",
+      "when": "Durante o dia",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 6
+    },
+    {
+      "id": "drive-stock-05",
+      "area": "stock",
+      "cadence": "daily",
+      "title": "Atualizar ocorrências e pendências do estoque",
+      "when": "Final do dia",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 7
+    },
+    {
+      "id": "drive-stock-06",
+      "area": "stock",
+      "cadence": "weekly",
+      "title": "Contagem e inventário",
+      "when": "Segunda-Feira",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 8
+    },
+    {
+      "id": "drive-stock-07",
+      "area": "stock",
+      "cadence": "weekly",
+      "title": "Revisar itens críticos e necessidade de reposição",
+      "when": "Terça-Feira",
+      "weekdays": [
+        2
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 9
+    },
+    {
+      "id": "drive-stock-08",
+      "area": "stock",
+      "cadence": "weekly",
+      "title": "Montar pedidos por fornecedor",
+      "when": "Quarta-Feira",
+      "weekdays": [
+        3
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 10
+    },
+    {
+      "id": "drive-stock-09",
+      "area": "stock",
+      "cadence": "weekly",
+      "title": "Organização profunda por marca, linha e validade",
+      "when": "Quinta-Feira",
+      "weekdays": [
+        4
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 11
+    },
+    {
+      "id": "drive-stock-10",
+      "area": "stock",
+      "cadence": "monthly",
+      "title": "Conferir produtos próximos do vencimento",
+      "when": "Dia 15 de cada mês",
+      "weekdays": null,
+      "dayOfMonth": 15,
+      "sourceKey": "stock",
+      "sourceRow": 12
+    },
+    {
+      "id": "drive-stock-11",
+      "area": "stock",
+      "cadence": "monthly",
+      "title": "Revisar estoque mínimo conforme giro real",
+      "when": "Início do mês",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 13
+    },
+    {
+      "id": "drive-stock-12",
+      "area": "stock",
+      "cadence": "monthly",
+      "title": "Relatório mensal do estoque",
+      "when": "Final do mês",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 14
+    },
+    {
+      "id": "drive-stock-13",
+      "area": "stock",
+      "cadence": "on_demand",
+      "title": "Recebimento com conferência tripla: físico, nota fiscal e pedido",
+      "when": "Quando houver entrega",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 15
+    },
+    {
+      "id": "drive-stock-14",
+      "area": "stock",
+      "cadence": "on_demand",
+      "title": "Tratar divergências de nota fiscal ou pedido",
+      "when": "Quando houver divergência",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 16
+    },
+    {
+      "id": "drive-stock-15",
+      "area": "stock",
+      "cadence": "on_demand",
+      "title": "Dar entrada no sistema, organizar produtos e arquivar nota fiscal",
+      "when": "Após recebimento",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 17
+    },
+    {
+      "id": "drive-stock-16",
+      "area": "stock",
+      "cadence": "on_demand",
+      "title": "Solicitar pedido emergencial",
+      "when": "Quando item crítico estiver acabando",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "stock",
+      "sourceRow": 18
+    },
+    {
+      "id": "drive-cleaning-01",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Verificar e repor dispensers (sabonete, papel e etc)",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 3
+    },
+    {
+      "id": "drive-cleaning-02",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Varrer e passar pano em todo o salão principal",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 4
+    },
+    {
+      "id": "drive-cleaning-03",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpar e desinfetar superfícies de atendimento (bancadas, cadeiras)",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 5
+    },
+    {
+      "id": "drive-cleaning-04",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpar bancadas dos profissionais",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 6
+    },
+    {
+      "id": "drive-cleaning-05",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpar vidros e espelhos dos profissionais",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 7
+    },
+    {
+      "id": "drive-cleaning-06",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Esvaziar lixeiras e repor sacos",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 8
+    },
+    {
+      "id": "drive-cleaning-07",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpar sofá e mesa da recepção",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 9
+    },
+    {
+      "id": "drive-cleaning-08",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpeza inicial dos banheiros (manhã)",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 10
+    },
+    {
+      "id": "drive-cleaning-09",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpar charutaria",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 11
+    },
+    {
+      "id": "drive-cleaning-10",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpar estoque",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 12
+    },
+    {
+      "id": "drive-cleaning-11",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Varrer área externa",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 13
+    },
+    {
+      "id": "drive-cleaning-12",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpar deck do Bistrô (externo)",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 14
+    },
+    {
+      "id": "drive-cleaning-13",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Retirada final do lixo",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 15
+    },
+    {
+      "id": "drive-cleaning-14",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Limpar área de funcionários",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 16
+    },
+    {
+      "id": "drive-cleaning-15",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Lavar todos os banheiros (limpeza completa)",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 19
+    },
+    {
+      "id": "drive-cleaning-16",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Limpar sala de Maquiagem",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 20
+    },
+    {
+      "id": "drive-cleaning-17",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Limpar sala de Podologia",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 21
+    },
+    {
+      "id": "drive-cleaning-18",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Limpar sala de Progressiva",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 22
+    },
+    {
+      "id": "drive-cleaning-19",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Limpar sala de Depilação",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 23
+    },
+    {
+      "id": "drive-cleaning-20",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Limpar Sala Vip",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 24
+    },
+    {
+      "id": "drive-cleaning-21",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Limpar sala de Mega",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 25
+    },
+    {
+      "id": "drive-cleaning-22",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Limpar sala de Estética",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 26
+    },
+    {
+      "id": "drive-cleaning-23",
+      "area": "cleaning",
+      "cadence": "three_per_week",
+      "title": "Limpar sala de Massoterapia",
+      "when": "Terça, quinta e sábado",
+      "weekdays": [
+        2,
+        4,
+        6
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 27
+    },
+    {
+      "id": "drive-cleaning-24",
+      "area": "cleaning",
+      "cadence": "daily",
+      "title": "Conferir lixeiras esvaziadas e sacos trocados",
+      "when": "Abertura/execução diária; verificar seção original",
+      "weekdays": null,
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 29
+    },
+    {
+      "id": "drive-cleaning-25",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Lavar lavatórios (com desincrustante)",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 1
+    },
+    {
+      "id": "drive-cleaning-26",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Lavar chão da recepção",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 2
+    },
+    {
+      "id": "drive-cleaning-27",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Lavar garagem",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 3
+    },
+    {
+      "id": "drive-cleaning-28",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Lavar todos os banheiros (completo)",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 4
+    },
+    {
+      "id": "drive-cleaning-29",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Lavar portas de vidro e janelas",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 5
+    },
+    {
+      "id": "drive-cleaning-30",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Limpar paredes e azulejos",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 6
+    },
+    {
+      "id": "drive-cleaning-31",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Retirar tapete da recepção, varrer",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 7
+    },
+    {
+      "id": "drive-cleaning-32",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Retirar tapetes da charutaria, varrer",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 8
+    },
+    {
+      "id": "drive-cleaning-33",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Higienizar cadeiras",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 9
+    },
+    {
+      "id": "drive-cleaning-34",
+      "area": "cleaning",
+      "cadence": "weekly",
+      "title": "Desengordura de piso da área de serviço",
+      "when": "Segunda-feira; limpeza pesada",
+      "weekdays": [
+        1
+      ],
+      "dayOfMonth": null,
+      "sourceKey": "cleaning",
+      "sourceRow": 10
+    }
+  ]
+}

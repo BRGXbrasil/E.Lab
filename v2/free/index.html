@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>E.Lab — Rotinas Operacionais</title>
+<style>
+:root{font-family:system-ui,sans-serif;color:#302923;background:#faf8f5}body{max-width:900px;margin:2rem auto;padding:0 1rem}
+h1{font-size:1.8rem} .panel{background:white;border:1px solid #ddd5cc;border-radius:14px;padding:1.1rem;margin:1rem 0}
+input,button{font:inherit;padding:.65rem;border-radius:8px;border:1px solid #b7afa4}button{cursor:pointer;background:#40372e;color:white}
+button:disabled{opacity:.5;cursor:not-allowed}.task{display:flex;justify-content:space-between;align-items:center;gap:1rem;border-top:1px solid #eee;padding:.85rem 0}
+small,.muted{color:#6e6760}.task:first-child{border:0}.task strong{display:block}form{display:flex;gap:.6rem;flex-wrap:wrap}
+#logout{float:right}.hidden{display:none}.err{color:#a22828}#state{min-height:1.4em}
+.dashboard-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:.6rem;margin:1rem 0}.metric{background:#f7f3ef;padding:1rem;border-radius:10px}.metric b{display:block;font-size:1.5rem}.metric small{display:block}
+table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1px solid #e5ddd5;text-align:left;padding:.6rem;word-break:break-word}.scroll{overflow-x:auto}.dashboard-link{display:inline-block;margin:.5rem 0;color:#443326}
+</style></head>
+<body><header><h1>E.Lab — Rotinas Operacionais</h1><p class="muted">Acesso individual com Supabase Auth. A Lista da Vez existente não é modificada.</p></header>
+<section class="panel" id="signin"><h2>Entrar</h2><form id="login"><input id="username" type="text" required autocomplete="username" autocapitalize="none" placeholder="Usuário" maxlength="80"><input id="password" type="password" required autocomplete="current-password" placeholder="Senha"><button>Entrar</button></form><p><button id="open-register" type="button">Criar primeiro acesso</button> <button id="open-reset" type="button">Esqueci minha senha</button></p></section>
+<section class="panel hidden" id="registration"><h2>Primeiro acesso autorizado</h2>
+<p class="muted">Informe o nome exatamente como foi cadastrado e o código individual fornecido pelo proprietário. Não é necessário e-mail.</p>
+<form id="registration-form"><input id="new-username" type="text" required autocomplete="username" autocapitalize="none" maxlength="80" placeholder="Nome de usuário">
+<input id="new-password" type="password" required autocomplete="new-password" minlength="12" placeholder="Sua senha (12+ caracteres)">
+<input id="new-code" type="text" required maxlength="64" minlength="64" autocomplete="off" placeholder="Código individual de ativação">
+<button type="submit">Criar acesso</button><button type="button" id="close-register">Cancelar</button></form></section>
+<section class="panel hidden" id="reset-panel"><h2>Redefinir senha</h2><p class="muted">Solicite à direção um código individual de recuperação e crie uma nova senha.</p>
+<form id="reset-form"><input id="reset-username" type="text" required placeholder="Nome de usuário" autocomplete="username" maxlength="80">
+<input id="reset-password" type="password" required minlength="12" placeholder="Nova senha" autocomplete="new-password">
+<input id="reset-code" type="text" required minlength="64" maxlength="64" placeholder="Código de recuperação">
+<button type="submit">Salvar nova senha</button><button type="button" id="close-reset">Cancelar</button></form></section>
+<section class="panel hidden" id="workspace"><button id="logout" type="button">Sair</button><h2>Rotinas</h2><p id="who"></p><label>Data operacional <input id="date" type="date"></label><button id="refresh" type="button">Atualizar</button><div id="tasks"></div></section>
+<section class="panel hidden" id="direction"><h2>Painel da Direção</h2>
+<p class="muted">Visão geral de acessos, rotinas e registros. Somente usuários autorizados visualizam este painel.</p>
+<div class="dashboard-metrics" id="metrics"></div>
+<h3>Setores</h3><div id="areas"></div><h3>Pendências de programação</h3><div id="pending-schedules" class="muted"></div>
+<h3>Contas existentes</h3><div class="scroll"><table><thead><tr><th>Conta</th><th>Função</th><th>Acesso</th><th>Gestão</th></tr></thead><tbody id="registered"></tbody></table></div>
+<h3>Equipe cadastrada</h3><div class="scroll"><table><thead><tr><th>Nome</th><th>Função</th><th>Vínculo</th><th>Acesso</th></tr></thead><tbody id="staff"></tbody></table></div>
+<div class="panel hidden" id="invite-output"><strong>Código individual de acesso ou recuperação</strong><p class="muted">Envie o código individualmente ao funcionário. Convites valem 48 horas; redefinições, 24 horas.</p><input id="invite-value" type="text" readonly style="width:100%"><button id="copy-invite" type="button">Copiar código</button></div>
+<h3>Registros operacionais</h3><div id="activities" class="muted"></div><h3>Histórico recente da Lista da Vez</h3><div class="scroll"><table><thead><tr><th>Data</th><th>Setor</th><th>Evento</th><th>Profissional</th><th>Cliente</th><th>Detalhe</th></tr></thead><tbody id="queue-history"></tbody></table></div>
+<h3>Lista da Vez — dados reais</h3><div id="queue-summary" class="muted">Aguardando atualização</div><a class="dashboard-link" href="https://yrmsnykdxxqomkvxqnki.supabase.co/functions/v1/elab-lista-da-vez" target="_blank" rel="noopener noreferrer">Abrir Lista da Vez (consulta pública)</a>
+<button type="button" id="refresh-dashboard">Atualizar painel</button></section>
+<p><a class="dashboard-link" href="https://yrmsnykdxxqomkvxqnki.supabase.co/functions/v1/elab-lista-da-vez" target="_blank" rel="noopener noreferrer">Consultar Lista da Vez sem login</a></p><p id="state" role="status"></p>
+<script type="module">
+import {createClient} from "https://esm.sh/@supabase/supabase-js@2.76.1";
+const supabaseUrl="https://yrmsnykdxxqomkvxqnki.supabase.co";
+const publishableKey="sb_publishable_nviD65C5Y-mgrj04dwEheQ_x17AjVfL";
+const client=createClient(supabaseUrl,publishableKey);
+const $=id=>document.getElementById(id);
+const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
+$("date").value=today();
+function status(message,isError=false){$("state").textContent=message;$("state").className=isError?"err":"";}
+async function session(){return (await client.auth.getSession()).data.session;}
+async function api(method,body){const s=await session();if(!s)throw Error("Sessão expirada");const res=await fetch(supabaseUrl+"/functions/v1/operational"+(method==="GET"?"?date="+encodeURIComponent($("date").value):""),{
+method,headers:{authorization:"Bearer "+s.access_token,apikey:publishableKey,...(body?{"content-type":"application/json"}:{})},body:body?JSON.stringify(body):undefined
+});const json=await res.json().catch(()=>({error:"Erro de resposta"}));if(!res.ok)throw Error(json.error||"Falha de operação");return json;}
+function isDue(task,date){
+ const d=new Date(date+"T12:00:00");if(!Number.isFinite(d.getTime()))return false;
+ const day=d.getDay();if(task.cadence==="daily")return true;
+ if(task.cadence==="weekly"||task.cadence==="three_per_week")return Array.isArray(task.weekdays)&&task.weekdays.includes(day);
+ if(task.cadence==="monthly")return task.day_of_month==null||Number(task.day_of_month)===d.getDate();
+ return false;
+}
+function titleRow(text){const el=document.createElement("h3");el.textContent=text;return el;}
+async function load(){
+ status("Consultando...");$("tasks").replaceChildren();
+ try{
+  const selected=$("date").value;if(!/^\d{4}-\d{2}-\d{2}$/.test(selected))throw Error("Informe uma data válida.");
+  const data=await api("GET");$("who").textContent="Permissão: "+data.role;
+  const tasks=(data.tasks??[]).filter(t=>isDue(t,selected));
+  const occurrences=(data.tasks??[]).filter(t=>t.cadence==="on_demand");
+  const eventByTask=new Map(),occurrenceCount=new Map();
+  const taskLookup=new Map((data.tasks??[]).map(t=>[t.id,t]));
+  for(const event of data.events??[]){
+   const task=taskLookup.get(event.task_id);if(!task)continue;
+   if(task.cadence==="on_demand"){
+    if(event.business_date===selected && event.event_type==="occurred")occurrenceCount.set(task.id,(occurrenceCount.get(task.id)??0)+1);
+   } else if((task.cadence==="monthly"&&task.day_of_month==null)||event.business_date===selected){
+    if(!eventByTask.has(task.id))eventByTask.set(task.id,event.event_type);
+   }
+  }
+  const list=$("tasks");list.append(titleRow("Rotinas previstas"));
+  let done=0;
+  for(const task of tasks){
+   const completed=eventByTask.get(task.id)==="completed";if(completed)done++;
+   const item=document.createElement("div");item.className="task";
+   const info=document.createElement("div");const heading=document.createElement("strong");heading.textContent=task.title;
+   const details=document.createElement("small");details.textContent=task.area+" • "+task.when_text+(task.cadence==="monthly"&&task.day_of_month==null?" • Janela mensal flexível":"")+" • "+(completed?"Concluída":"Pendente");
+   info.append(heading,details);
+   const btn=document.createElement("button");btn.type="button";btn.textContent=completed?"Reabrir":"Concluir";
+   btn.onclick=async()=>{btn.disabled=true;try{await api("POST",{taskId:task.id,businessDate:selected,eventType:completed?"reopened":"completed"});await load();}catch(e){status(e.message,true);btn.disabled=false;}};
+   item.append(info,btn);list.append(item);
+  }
+  if(!tasks.length){const p=document.createElement("p");p.textContent="Nenhuma rotina prevista nesta data.";list.append(p);}
+  if(occurrences.length){
+   list.append(titleRow("Atividades por ocorrência"));
+   for(const task of occurrences){
+    const item=document.createElement("div");item.className="task";
+    const info=document.createElement("div"),heading=document.createElement("strong"),details=document.createElement("small");
+    heading.textContent=task.title;
+    details.textContent=task.when_text+" • "+(occurrenceCount.get(task.id)??0)+" registro(s) nesta data";
+    const note=document.createElement("input");note.type="text";note.maxLength=2000;note.placeholder="Detalhes da ocorrência (opcional)";
+    note.setAttribute("aria-label","Detalhes da ocorrência");info.append(heading,details,note);
+    const btn=document.createElement("button");btn.type="button";btn.textContent="Registrar";
+    btn.onclick=async()=>{btn.disabled=true;try{await api("POST",{taskId:task.id,businessDate:selected,eventType:"occurred",note:note.value});await load();}catch(e){status(e.message,true);btn.disabled=false;}};
+    item.append(info,btn);list.append(item);
+   }
+  }
+  status(done+" de "+tasks.length+" rotinas previstas concluídas em "+selected);
+ }catch(e){status(e.message,true);}
+}
+const directions=new Set(["owner","director","admin","hr"]);
+function cell(row,text){const td=document.createElement("td");td.textContent=String(text??"—");row.append(td);}
+function summary(label,value){const el=document.createElement("div");el.className="metric";const b=document.createElement("b"),small=document.createElement("small");b.textContent=String(value??0);small.textContent=label;el.append(b,small);return el;}
+async function dashboard(role){
+ const enabled=directions.has(role);$("direction").classList.toggle("hidden",!enabled);if(!enabled)return;
+ const [metrics,accounts,roster,queue,pending,history]=await Promise.all([
+ client.rpc("elab_ops_dashboard"),client.rpc("elab_ops_admin_users"),client.rpc("elab_ops_staff_directory_list"),client.rpc("elab_ops_queue_summary"),client.from("elab_ops_tasks").select("title,when_text,cadence").eq("active",false),client.rpc("elab_ops_queue_history",{p_limit:100})
+ ]);
+ if(metrics.error||accounts.error||roster.error||queue.error||pending.error||history.error){status("Falha ao consultar dados da direção.",true);return;}const qs=$("queue-summary");qs.replaceChildren();for(const s of queue.data?.services??[]){const p=document.createElement("p");p.textContent=s.service+": "+s.professionals+" profissionais · "+s.attendance+" atendimentos · "+s.events+" eventos · "+s.futureQueue+" agendamentos · "+s.absent+" ausentes";qs.append(p);}if(!(queue.data?.services??[]).length)qs.textContent="Sem dados disponíveis da Lista da Vez.";
+ const pend=$("pending-schedules");pend.replaceChildren();for(const task of pending.data??[]){const p=document.createElement("p");p.textContent=task.title+" — "+task.when_text+" ("+task.cadence+")";pend.append(p);}if(!(pending.data??[]).length)pend.textContent="Todas as rotinas possuem programação ativa.";
+ const d=metrics.data??{};const container=$("metrics");container.replaceChildren();
+ for(const [label,key] of [["Rotinas","totalTasks"],["Ativas","activeTasks"],["Registros","totalEvents"],["Concluídas","completedEvents"],["Reaberturas","reopenedEvents"],["Contas","totalAccounts"],["Operadores vinculados","assignedOperators"],["Equipe pendente","pendingStaff"],["Estados da Lista da Vez","queueStateRows"]])container.append(summary(label,d[key]));
+ const a=$("areas");a.replaceChildren();for(const area of d.areas??[]){const p=document.createElement("p");p.textContent=area.area+": "+area.active+" ativas / "+area.tasks+" totais";a.append(p);}
+ $("registered").replaceChildren();for(const entry of accounts.data??[]){const tr=document.createElement("tr");const rosterMatch=(roster.data??[]).find(x=>x.account_email===entry.email);
+cell(tr,entry.email?.endsWith("@accounts.elab.invalid")?(rosterMatch?.display_name??"Conta interna"):entry.email);
+cell(tr,entry.role??"Pendente");cell(tr,entry.active?"Ativo":"Sem função ativa");
+const actions=document.createElement("td");if(role==="owner"&&entry.role!=="owner"){const sel=document.createElement("select");const options=[["reception","Recepção"],["controls","Estoque"],["cleaning","Limpeza"],["manager","Gerência"],["director","Direção"],["admin","Administração"],["hr","RH"],["professional","Profissional"]];for(const [value,label] of options){const op=document.createElement("option");op.value=value;op.textContent=label;op.selected=value===entry.role;sel.append(op);}
+const save=document.createElement("button");save.type="button";save.textContent="Salvar";save.onclick=async()=>{save.disabled=true;const {error}=await client.rpc("elab_ops_set_user_role",{p_user_id:entry.user_id,p_role:sel.value,p_active:true});if(error){status("Permissão não alterada.",true);save.disabled=false;}else{status("Permissão atualizada.");await dashboard(role);}};actions.append(sel,save);
+if(entry.role){const block=document.createElement("button");block.type="button";block.textContent=entry.active?"Bloquear":"Reativar";block.onclick=async()=>{block.disabled=true;const {error}=await client.rpc("elab_ops_set_user_role",{p_user_id:entry.user_id,p_role:entry.role,p_active:!entry.active});if(error){status("Acesso não alterado.",true);block.disabled=false;}else{status("Acesso atualizado.");await dashboard(role);}};actions.append(block);}}
+tr.append(actions);$("registered").append(tr);}
+ $("staff").replaceChildren();for(const person of roster.data??[]){const tr=document.createElement("tr");cell(tr,person.display_name);cell(tr,person.proposed_role);cell(tr,person.account_email??"Ainda não vinculado");
+const actions=document.createElement("td");if(role==="owner"){const linked=!!person.account_email;const btn=document.createElement("button");btn.type="button";btn.textContent=linked?"Redefinir senha":"Gerar convite";btn.onclick=async()=>{btn.disabled=true;try{const username=person.display_name.trim().toLocaleLowerCase("pt-BR");const {data,error}=await client.rpc(linked?"elab_ops_create_password_reset":"elab_ops_create_staff_invite",{p_username:username});if(error||!data?.code)throw Error("Code unavailable");$("invite-value").value=data.code;$("invite-output").classList.remove("hidden");status((linked?"Código de recuperação":"Código de primeiro acesso")+" criado para "+person.display_name+". Entregue-o de forma privada.");}catch{status("Código não gerado.",true);}finally{btn.disabled=false;}};actions.append(btn);}tr.append(actions);$("staff").append(tr);}
+ $("queue-history").replaceChildren();for(const entry of history.data??[]){const tr=document.createElement("tr");for(const value of [entry.at,entry.service,entry.type,entry.professional,entry.client,entry.effect])cell(tr,value);$("queue-history").append(tr);}const log=$("activities");log.replaceChildren();for(const a of d.operatorActivity??[]){const p=document.createElement("p");const known=(accounts.data??[]).find(x=>x.user_id===a.actorId);p.textContent=(known?.email??a.actorId)+": "+a.events+" eventos";log.append(p);}if(!(d.operatorActivity??[]).length)log.textContent="Nenhum evento operacional registrado.";
+}
+
+async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();if(data?.role)await dashboard(data.role);}}
+$("open-reset").onclick=()=>{$("reset-panel").classList.remove("hidden");$("reset-username").focus();};
+$("close-reset").onclick=()=>{$("reset-panel").classList.add("hidden");};
+$("reset-form").onsubmit=async e=>{e.preventDefault();status("Validando código...");const username=$("reset-username").value.trim(),password=$("reset-password").value,code=$("reset-code").value.trim();const btn=$("reset-form").querySelector('button[type="submit"]');btn.disabled=true;try{const res=await fetch(supabaseUrl+"/functions/v1/elab-reset",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username,password,code})});const data=await res.json();if(!res.ok||!data.ok){status(data.error??"Código não autorizado.",true);return;}$("reset-panel").classList.add("hidden");$("username").value=username;$("password").value=password;$("reset-password").value="";$("reset-code").value="";status("Senha atualizada. Entrando...");$("login").requestSubmit();}catch{status("Serviço de recuperação indisponível.",true);}finally{btn.disabled=false;}};
+$("open-register").onclick=()=>{$("registration").classList.remove("hidden");$("new-username").focus();};
+$("close-register").onclick=()=>{$("registration").classList.add("hidden");};
+$("copy-invite").onclick=async()=>{const code=$("invite-value").value;try{await navigator.clipboard.writeText(code);status("Código copiado. Compartilhe somente com a pessoa autorizada.");}catch{$("invite-value").select();status("Selecione e copie o código manualmente.");}};
+$("registration-form").onsubmit=async e=>{e.preventDefault();status("Criando acesso...");const username=$("new-username").value.trim(),password=$("new-password").value,inviteCode=$("new-code").value.trim();const btn=$("registration-form").querySelector('button[type="submit"]');btn.disabled=true;
+try{const response=await fetch(supabaseUrl+"/functions/v1/elab-register",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username,password,inviteCode})});const result=await response.json();if(!response.ok||!result.ok){status(result.error??"Convite não autorizado.",true);return;}$("registration").classList.add("hidden");$("username").value=username;$("password").value=password;$("new-password").value="";$("new-code").value="";status("Acesso criado. Entrando...");$("login").requestSubmit();}catch{status("Serviço de cadastro indisponível.",true);}finally{btn.disabled=false;}
+};
+$("login").onsubmit=async e=>{e.preventDefault();status("Autenticando...");try{const res=await fetch(supabaseUrl+"/functions/v1/elab-login",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username:$("username").value,password:$("password").value})});const payload=await res.json();if(!res.ok||!payload.access_token||!payload.refresh_token){status("Usuário ou senha inválidos.",true);return;}const {error}=await client.auth.setSession({access_token:payload.access_token,refresh_token:payload.refresh_token});if(error){status("Não foi possível iniciar a sessão.",true);return;}$("password").value="";await refresh();}catch{status("Serviço de login indisponível.",true);}};
+$("logout").onclick=async()=>{await client.auth.signOut();await refresh();status("Sessão encerrada.");};
+$("refresh").onclick=load;$("date").onchange=load;$("refresh-dashboard").onclick=refresh;await refresh();
+</script></body></html>

@@ -1,0 +1,24 @@
+name: E.Lab Free — integrity
+on:
+  push:
+    branches: [elab-unificado-2]
+    paths:
+      - 'v2/free/**'
+      - '.github/workflows/elab-free-tests.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'v2/free/**'
+permissions:
+  contents: read
+jobs:
+  integrity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run offline source and security regression tests
+        run: node --test v2/free/*.test.mjs
