@@ -31,15 +31,133 @@
     <section id="appContent"></section>
     <footer class="footer"><span>e.lab boutique · <span id="footerService">Cabeleireiros</span></span><span>Sincronização em tempo real</span></footer>
   </main>
-  <div class="modal-backdrop hidden" id="authBackdrop"><div class="modal"><div class="eyebrow">Acesso individual</div><h2>Entrar na operação</h2><p>Use seu usuário e sua senha. Contas antigas também podem entrar com o e-mail cadastrado.</p><div class="field"><label>Usuário ou e-mail</label><input id="authEmail" type="text" autocomplete="username" autocapitalize="none" maxlength="254"></div><div class="field"><label>Senha</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Sua senha"></div><div id="authError" style="min-height:18px;color:#a55f55;font-size:11px"></div><div class="modal-actions"><button class="btn" id="authCancel">Cancelar</button><button class="btn primary" id="authSubmit">Entrar</button></div></div></div><div class="modal-backdrop hidden" id="modalBackdrop"><div class="modal"><h2 id="modalTitle">Registrar atendimento</h2><p id="modalIntro"></p><div id="modalFields"></div><div class="modal-actions"><button class="btn" id="modalCancel">Cancelar</button><button class="btn primary" id="modalSave">Salvar</button></div></div></div>
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="queue-logic-27d857b.js"></script>
+  <div class="modal-backdrop hidden" id="authBackdrop"><div class="modal"><div class="eyebrow">Acesso individual</div><h2>Entrar na operação</h2><p>Use o e-mail e a senha cadastrados no Supabase Auth. Cada operador terá uma sessão própria.</p><div class="field"><label>E-mail</label><input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="Nome de usuário"></div><div class="field"><label>Senha</label><input id="authPassword" type="password" autocomplete="current-password" placeholder="Sua senha"></div><div id="authError" style="min-height:18px;color:#a55f55;font-size:11px"></div><div class="modal-actions"><button class="btn" id="authCancel">Cancelar</button><button class="btn primary" id="authSubmit">Entrar</button></div></div></div><div class="modal-backdrop hidden" id="modalBackdrop"><div class="modal"><h2 id="modalTitle">Registrar atendimento</h2><p id="modalIntro"></p><div id="modalFields"></div><div class="modal-actions"><button class="btn" id="modalCancel">Cancelar</button><button class="btn primary" id="modalSave">Salvar</button></div></div></div>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script>(function(root){
+  function unique(list){return [...new Set((Array.isArray(list)?list:[]).filter(Boolean))]}
+  function eligible(state){
+    const absent=new Set(unique(state.absent));
+    const occupied=new Set(unique(state.occupied));
+    return unique(state.people).filter(p=>!absent.has(p)&&!occupied.has(p));
+  }
+  function order(state){
+    const people=unique(state.people), available=eligible(state);
+    if(!available.length)return [];
+    const start=Math.max(0,people.indexOf(state.nextUp));
+    const allowed=new Set(available);
+    return people.slice(start).concat(people.slice(0,start)).filter(p=>allowed.has(p));
+  }
+  function inverseOrder(state){return order({...state,nextUp:state.agendaNextUp||state.people?.[0]} )}
+  function nextAfter(state, person){
+    const available=eligible(state), people=unique(state.people);
+    if(!available.length)return null;
+    const start=available.indexOf(person);
+    if(start>=0)return available[(start+1)%available.length];
+    const pointer=people.indexOf(person);
+    return available.find(p=>people.indexOf(p)>pointer)||available[0];
+  }
+  function transition(state, event){
+    const next={...state, people:unique(state.people), absent:unique(state.absent), occupied:unique(state.occupied)};
+    const person=event.person;
+    if(event.type==='status'){
+      // Absence consumes the turn on both independent rotations.
+      next.absent=next.absent.filter(p=>p!==person); next.occupied=next.occupied.filter(p=>p!==person);
+      if(event.to==='absent') next.absent.push(person);
+      if(event.to==='occupied') next.occupied.push(person);
+      if(event.to==='absent')for(const key of ['nextUp','agendaNextUp'])if(next[key]===person)next[key]=nextAfter(next,person);
+      // Occupation preserves nextUp: returning staff retain their place.
+    }
+    if(event.type==='pass' || event.type==='attendance'){
+      const target=event.queue==='advance'?'agendaNextUp':'nextUp';
+      const pointer=next[target]||next.people[0];
+      next[target]=nextAfter({...next,nextUp:pointer},person||order({...next,nextUp:pointer})[0]);
+    }
+    return next;
+  }
+
+  // Deterministic operation replay on top of the newest server revision.
+  // Conflict retries never overwrite an unrelated operator's successful event.
+  function replayEvent(c,input,local){
+    const e={...input},type=e.type,agenda=e.queue==='Agenda';
+    const pointer=agenda?'agendaNextUp':'nextUp';
+    const current=()=>order({...c,nextUp:c[pointer]||c.people[0]})[0];
+    const apply=(event)=>Object.assign(c,transition(c,event));
+    if(type==='status_change'){
+      if(e.professional)apply({type:'status',person:e.professional,to:e.to});
+      else if(typeof e.to==='string'){
+        const abs=new Set(e.to.split(',').map(x=>x.trim()).filter(Boolean));
+        for(const p of c.people)apply({type:'status',person:p,to:abs.has(p)?'absent':'present'});
+      }
+    }else if(type==='pass'||type==='attendance'){
+      const person=current();if(!person)throw Error('Sem profissional disponível na fila');
+      e.professional=person;
+      if(type==='attendance'){
+        c.weeklyCount[person]=(c.weeklyCount[person]||0)+1;
+        c.log.push({id:e.logId||Date.now(),nome:e.client,serv:e.service,prof:person,when:new Date(e.at).toLocaleString('pt-BR')});
+      }
+      apply({type,person,queue:agenda?'advance':'immediate'});
+      e.toProfessional=c[pointer];
+    }else if(type==='appointment_created'){
+      const original=(local.futureQueue||[]).find(x=>String(x.id)===String(e.appointmentId));
+      if(!original)throw Error('Dados de agendamento não encontrados');
+      const person=current();if(!person)throw Error('Agenda sem profissional disponível');
+      c.futureQueue.push({...original,prof:person});e.professional=person;
+      apply({type:'attendance',person,queue:'advance'});
+    }else if(['appointment_confirmed','appointment_missed','appointment_cancelled'].includes(type)){
+      const item=(c.futureQueue||[]).find(x=>String(x.id)===String(e.appointmentId));
+      if(!item)throw Error('Agendamento não encontrado');
+      if(item.status==='confirmed'&&type!=='appointment_confirmed')throw Error('Já confirmado');
+      if(item.status==='missed'&&type!=='appointment_missed')throw Error('Falta já registrada');
+      if(item.status==='cancelled'&&type!=='appointment_cancelled')throw Error('Já cancelado');
+      if(type==='appointment_confirmed'){item.status='confirmed';item.confirmedAt=e.at}
+      if(type==='appointment_missed'){item.status='missed';item.missedAt=e.at;c.agendaNextUp=item.prof}
+      if(type==='appointment_cancelled'){item.status='cancelled';item.cancelledAt=e.at;c.agendaNextUp=item.prof}
+      e.professional=item.prof;
+    }else if(type==='roster_change'){
+      const i=c.people.indexOf(e.from),name=e.professional;
+      if(i<0||c.people.includes(name))throw Error('Cadastro conflitante');
+      c.people[i]=name;c.weeklyCount[name]=c.weeklyCount[e.from]||0;delete c.weeklyCount[e.from];
+      c.absent=c.absent.map(p=>p===e.from?name:p);
+      c.occupied=c.occupied.map(p=>p===e.from?name:p);
+      if(c.nextUp===e.from)c.nextUp=name;if(c.agendaNextUp===e.from)c.agendaNextUp=name;
+    }else if(type==='roster_removed'){
+      const p=e.professional;
+      if(c.nextUp===p)c.nextUp=nextAfter(c,p);
+      if(c.agendaNextUp===p)c.agendaNextUp=nextAfter(c,p);
+      c.people=c.people.filter(x=>x!==p);
+      c.absent=c.absent.filter(x=>x!==p);c.occupied=c.occupied.filter(x=>x!==p);
+      delete c.weeklyCount[p];
+    }else if(type==='attendance_deleted'){
+      const old=c.log.find(x=>String(x.id)===String(e.logId));
+      if(old){c.weeklyCount[old.prof]=Math.max(0,(c.weeklyCount[old.prof]||0)-1);c.log=c.log.filter(x=>String(x.id)!==String(e.logId))}
+    }else throw Error('Operação sem regra de reconciliação: '+type);
+    c.events.push(e);
+  }
+  function rebase(base,local,remote){
+    const merged=structuredClone(remote);
+    for(const c of Object.values(merged))if(c&&Array.isArray(c.people)&&!c.agendaNextUp)c.agendaNextUp=c.nextUp||c.people[0]||null;
+    for(const key of Object.keys(local||{})){
+      const l=local[key];if(!l||!Array.isArray(l.events))continue;
+      const b=base?.[key]||{events:[]},r=merged[key];
+      if(!r)throw Error('Fila não encontrada no servidor: '+key);
+      const baseIds=new Set((b.events||[]).map(e=>e.eventId));
+      const applied=new Set((r.events||[]).map(e=>e.eventId));
+      for(const e of l.events){
+        if(!e.eventId||baseIds.has(e.eventId)||applied.has(e.eventId))continue;
+        replayEvent(r,e,l);applied.add(e.eventId);
+      }
+    }
+    return merged;
+  }
+  root.QueueSync={rebase,replayEvent};
+  root.QueueLogic={unique,eligible,order,inverseOrder,nextAfter,transition};
+})(typeof window!=='undefined'?window:globalThis);
+</script>
   <script>
     const SUPABASE_URL='https://yrmsnykdxxqomkvxqnki.supabase.co';
     const SUPABASE_KEY='sb_publishable_nviD65C5Y-mgrj04dwEheQ_x17AjVfL';
     const supabaseClient=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY);
     const CLOUD_STATE_ID='lista-da-vez-principal';
-    let cloudReady=false, cloudRevision=-1, persistBusy=false, sessionVersion=0, loadVersion=0;
-    const operatorRoles=new Set(['owner','director','manager','admin','hr','reception']);
+    let cloudReady=false, cloudApplying=false, cloudChannel=null, cloudRevision=0, lastSyncedData=null;
     const TEAMS=[
       {k:'hair',n:'Cabeleireiros',d:'Corte, cor, finalização, tratamentos e mais',services:['hair']},
       {k:'nails',n:'Manicures',d:'Manicure padrão e serviço de gel',services:['nails','gel']},
@@ -52,128 +170,127 @@
       {k:'brows',n:'Sobrancelhas',short:'Sobrancelhas',people:['Déia','Marina'],tone:'green'},
       {k:'makeup',n:'Maquiagem',short:'Maquiagem',people:['Déia','Marina'],tone:'green'}
     ];
+    const defaultFuture={hair:[],nails:[],gel:[],brows:[],makeup:[]};
+    const stateKey='elab_lista_da_vez_v2';
     let app={service:'hair',view:'lists',canEdit:false,data:{}};
-    let authSession=null, canOperate=false;
+    let authSession=null, realtimeStarted=false;
     let modal={type:null,service:'hair',queue:'immediate',index:null};
+    const syncChannel='BroadcastChannel' in window ? new BroadcastChannel('elab_lista_da_vez_sync') : null;
     const $=id=>document.getElementById(id);
-    function baseData(){return {people:[],nextUp:null,absent:[],occupied:[],weeklyCount:{},log:[],events:[],futureQueue:[]}}
-    const escapeHtml=value=>String(value??'').replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]);
-    function clearState(){SERVICES.forEach(s=>{app.data[s.k]=baseData()})}
+    function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+    function notifySync(){syncChannel?.postMessage({type:'refresh',at:Date.now()})}
+    function syncFromStorage(){if(persistPending||persistRunning)return;void load().then(()=>render())}
+    window.addEventListener('storage',e=>{if(e.key===stateKey)syncFromStorage()});
+    syncChannel?.addEventListener('message',e=>{if(e.data?.type==='refresh')syncFromStorage()});
+    function baseData(s){return {people:[...s.people],nextUp:s.people[0],agendaNextUp:s.people[0],absent:[],occupied:[],weeklyCount:Object.fromEntries(s.people.map(p=>[p,0])),log:[],events:[],futureQueue:structuredClone(defaultFuture[s.k]||[])} }
+    function loadLocal(){let saved={};try{saved=JSON.parse(localStorage.getItem(stateKey)||'{}')}catch{} SERVICES.forEach(s=>{app.data[s.k]={...baseData(s),...(saved[s.k]||{})};app.data[s.k].people=(Array.isArray(app.data[s.k].people)?app.data[s.k].people:[...s.people]).filter(p=>p!=='Evinho');if(s.k==='hair'&&!app.data[s.k].people.includes('Wallace'))app.data[s.k].people.push('Wallace');app.data[s.k].weeklyCount=app.data[s.k].weeklyCount&&typeof app.data[s.k].weeklyCount==='object'?app.data[s.k].weeklyCount:{};if(!app.data[s.k].nextUp)app.data[s.k].nextUp=app.data[s.k].people[0]||null;if(!app.data[s.k].agendaNextUp)app.data[s.k].agendaNextUp=app.data[s.k].nextUp||app.data[s.k].people[0]||null;if(!( 'Wallace' in app.data[s.k].weeklyCount))app.data[s.k].weeklyCount.Wallace=0;if(app.data[s.k].nextUp==='Evinho')app.data[s.k].nextUp=app.data[s.k].people[0]||null;app.data[s.k].absent=app.data[s.k].absent.filter(p=>p!=='Evinho');delete app.data[s.k].weeklyCount.Evinho;app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[];app.data[s.k].events=Array.isArray(app.data[s.k].events)?app.data[s.k].events:[];app.data[s.k].events=Array.isArray(app.data[s.k].events)?app.data[s.k].events:[];app.data[s.k].log.forEach(x=>{if(!app.data[s.k].events.some(e=>e.legacyRef===x.id)){app.data[s.k].events.push({eventId:'legacy-'+x.id,type:'attendance',category:'atendimento',at:x.when,professional:x.prof,client:x.nome||'',service:x.serv||s.n,queue:'Agora',effect:'Registro legado preservado',legacy:true,legacyRef:x.id})}})});}
     function setSyncLabel(text,online=true){const el=$('syncStatus');if(el){el.innerHTML=`<i></i> ${text}`;el.style.color=online?'#6f5b53':'#9e615d'}}
-    function normalizeCloudData(data){if(!data||typeof data!=='object')return false;SERVICES.forEach(s=>{const incoming=data[s.k];if(incoming&&typeof incoming==='object'){app.data[s.k]={...baseData(s),...incoming};app.data[s.k].people=Array.isArray(app.data[s.k].people)?app.data[s.k].people:[];app.data[s.k].weeklyCount=app.data[s.k].weeklyCount&&typeof app.data[s.k].weeklyCount==='object'?app.data[s.k].weeklyCount:{};if(!app.data[s.k].nextUp)app.data[s.k].nextUp=app.data[s.k].people[0]||null;app.data[s.k].absent=Array.isArray(app.data[s.k].absent)?app.data[s.k].absent:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[];app.data[s.k].log=Array.isArray(app.data[s.k].log)?app.data[s.k].log:[];app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[];app.data[s.k].events=Array.isArray(app.data[s.k].events)?app.data[s.k].events:[]}});return true}
-    async function load({force=false}={}){
-      if(!supabaseClient||persistBusy&&!force)return;
-      const version=++loadVersion, session=sessionVersion;
+    function normalizeCloudData(data){if(!data||typeof data!=='object')return false;SERVICES.forEach(s=>{const incoming=data[s.k];if(incoming&&typeof incoming==='object'){app.data[s.k]={...baseData(s),...incoming};app.data[s.k].people=Array.isArray(app.data[s.k].people)?app.data[s.k].people:[...s.people];app.data[s.k].weeklyCount=app.data[s.k].weeklyCount&&typeof app.data[s.k].weeklyCount==='object'?app.data[s.k].weeklyCount:{};if(!app.data[s.k].nextUp)app.data[s.k].nextUp=app.data[s.k].people[0]||null;if(!app.data[s.k].agendaNextUp)app.data[s.k].agendaNextUp=app.data[s.k].nextUp||app.data[s.k].people[0]||null;app.data[s.k].absent=Array.isArray(app.data[s.k].absent)?app.data[s.k].absent:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[];app.data[s.k].log=Array.isArray(app.data[s.k].log)?app.data[s.k].log:[];app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[];app.data[s.k].events=Array.isArray(app.data[s.k].events)?app.data[s.k].events:[]}});return true}
+    async function load(){
+      if(persistPending||persistRunning)return;
+      loadLocal();cloudReady=false;
+      if(!supabaseClient){setSyncLabel('Consulta indisponível',false);return}
       try{
-        const request = canOperate
-          ? supabaseClient.from('elab_state').select('data,revision').eq('id',CLOUD_STATE_ID).maybeSingle()
-          : supabaseClient.rpc('elab_queue_public');
-        const {data,error}=await request;
-        if(version!==loadVersion||session!==sessionVersion||persistBusy&&!force)return;
-        if(error||!data?.data)throw error||new Error('Fila indisponível');
-        const revision=Number(data.revision);
-        if(!force&&cloudReady&&revision<=cloudRevision)return;
-        clearState();
-        normalizeCloudData(data.data);
-        cloudRevision=revision;
-        cloudReady=true;
-        app.canEdit=canOperate;
-        setSyncLabel('Lista atualizada');
-        render();
-      }catch{
-        if(version!==loadVersion||session!==sessionVersion)return;
-        if(canOperate){
-          clearState();
-          closeModal();
-          canOperate=false;
-          cloudRevision=-1;
-          if(app.view==='history')app.view='lists';
+        const response=await supabaseClient.from('elab_state').select('data,revision').eq('id',CLOUD_STATE_ID).maybeSingle();
+        if(response.error)throw response.error;
+        const row=response.data;
+        if(!row?.data||!Object.keys(row.data).length){setSyncLabel('Estado não disponível',false);return}
+        cloudRevision=Number(row.revision||0);
+        cloudApplying=true;normalizeCloudData(row.data);cloudApplying=false;
+        lastSyncedData=structuredClone(app.data);cloudReady=!!authSession&&app.canEdit;
+        const draft=sessionStorage.getItem(stateKey+'_unsent');
+        if(draft&&cloudReady){
+          try{
+            const saved=JSON.parse(draft);
+            app.data=QueueSync.rebase(saved.base,saved.local,lastSyncedData);
+            persistPending=true;
+          }catch(err){
+            console.error('Rascunho preservado para investigação',err);
+            setSyncLabel('Conflito em rascunho preservado',false);cloudReady=false;return;
+          }
         }
-        cloudReady=false;
-        app.canEdit=false;
-        setSyncLabel('Sem conexão com a lista',false);
-        render();
-      }
+        localStorage.setItem(stateKey,JSON.stringify(app.data));
+        setSyncLabel(authSession?'Conectado ao servidor':'Consulta sincronizada');
+        if(persistPending)void persist();
+      }catch(err){console.warn('Falha ao consultar Supabase',err);setSyncLabel('Servidor indisponível',false)}
+    }
+    let persistPending=false,persistRunning=false,retryTimer=null;
+    function saveDraft(){
+      if(!lastSyncedData)return;
+      try{sessionStorage.setItem(stateKey+'_unsent',JSON.stringify({base:lastSyncedData,local:app.data}))}
+      catch(e){console.error('Não foi possível salvar o rascunho',e)}
+    }
+    function retrySync(){
+      if(retryTimer)clearTimeout(retryTimer);
+      retryTimer=setTimeout(()=>{retryTimer=null;if(cloudReady&&persistPending)void persist()},3000);
     }
     async function persist(){
-      if(!app.canEdit||!cloudReady||persistBusy)return;
-      const session=sessionVersion;
-      ++loadVersion;
-      persistBusy=true;
-      app.canEdit=false;
+      localStorage.setItem(stateKey,JSON.stringify(app.data));notifySync();
+      if(!supabaseClient||!authSession||!app.canEdit||!cloudReady||cloudApplying)return;
+      persistPending=true;saveDraft();
+      if(persistRunning)return;
+      persistRunning=true;
       try{
-        const nextRevision=cloudRevision+1;
-        const {data,error}=await supabaseClient.from('elab_state')
-          .update({data:app.data,revision:nextRevision,updated_at:new Date().toISOString()})
-          .eq('id',CLOUD_STATE_ID).eq('revision',cloudRevision).select('revision');
-        if(session!==sessionVersion)return;
-        if(error||!data?.length)throw error||new Error('Lista alterada por outro operador');
-        cloudRevision=nextRevision;
-        setSyncLabel('Alteração salva');
-      }catch{
-        if(session!==sessionVersion)return;
-        await load({force:true});
-        setSyncLabel('Alteração não salva. Confira a lista antes de repetir.',false);
-      }finally{
-        persistBusy=false;
-        app.canEdit=canOperate&&cloudReady;
-        render();
-      }
+        while(persistPending){
+          persistPending=false;
+          const snapshot=structuredClone(app.data),base=structuredClone(lastSyncedData);
+          let proposed=snapshot,revision=cloudRevision,committed=false;
+          for(let attempt=0;attempt<10;attempt++){
+            const {data,error}=await supabaseClient.from('elab_state')
+              .update({data:proposed,revision:revision+1,updated_at:new Date().toISOString()})
+              .eq('id',CLOUD_STATE_ID).eq('revision',revision).select('revision');
+            if(error)throw error;
+            if(data?.length){cloudRevision=revision+1;committed=true;break}
+            const fresh=await supabaseClient.from('elab_state')
+              .select('data,revision').eq('id',CLOUD_STATE_ID).single();
+            if(fresh.error||!fresh.data)throw fresh.error||Error('Fila não disponível');
+            revision=Number(fresh.data.revision||0);
+            proposed=QueueSync.rebase(base,snapshot,fresh.data.data);
+          }
+          if(!committed)throw Error('Conflito persistente após dez tentativas');
+          lastSyncedData=structuredClone(proposed);
+          if(persistPending){
+            app.data=QueueSync.rebase(snapshot,app.data,proposed);
+            saveDraft();
+          }else{
+            app.data=proposed;
+            sessionStorage.removeItem(stateKey+'_unsent');
+            localStorage.setItem(stateKey,JSON.stringify(app.data));
+            notifySync();
+          }
+          render();setSyncLabel('Sincronizado em tempo real');
+        }
+      }catch(err){
+        console.warn('Alterações pendentes, tentativa automática:',err);
+        persistPending=true;saveDraft();
+        setSyncLabel('Sincronização pendente · repetindo automaticamente',false);
+        retrySync();
+      }finally{persistRunning=false}
     }
+    window.addEventListener('online',()=>{if(persistPending&&cloudReady)void persist()});
     function eventId(){return crypto.randomUUID?crypto.randomUUID():`evt-${Date.now()}-${Math.random().toString(16).slice(2)}`}
     function recordEvent(c,event){c.events=Array.isArray(c.events)?c.events:[];c.events.push({eventId:eventId(),at:new Date().toISOString(),...event})}
-    function updateAuthUI(){const btn=$('accessBtn');if(btn){btn.textContent=authSession?'✓ '+(authSession.user.email||'Operador')+' · Sair':'🔒 Entrar para operar';btn.title=authSession?'Sessão autenticada: '+(authSession.user.email||''):'Login individual obrigatório'}$('modeLabel').textContent=authSession?'Modo operação · '+(authSession.user.email||'operador'):'Modo de consulta';$('modeHelp').textContent=authSession?'alterações autorizadas e sincronizadas pelo Supabase.':'entre com sua conta individual para operar as listas.'}
+    function startRealtime(){
+      if(!supabaseClient)return;
+      cloudChannel=supabaseClient.channel('elab-state-live')
+        .on('postgres_changes',{event:'*',schema:'public',table:'elab_state',filter:'id=eq.'+CLOUD_STATE_ID},payload=>{
+          if(!payload.new?.data||Number(payload.new.revision||0)<=cloudRevision)return;
+          if(persistRunning||persistPending)return;
+          cloudRevision=Number(payload.new.revision||0);
+          cloudApplying=true;normalizeCloudData(payload.new.data);cloudApplying=false;
+          lastSyncedData=structuredClone(app.data);
+          localStorage.setItem(stateKey,JSON.stringify(app.data));render();
+          setSyncLabel('Sincronizado em tempo real');
+        }).subscribe(status=>{
+          if(status==='SUBSCRIBED')setSyncLabel('Sincronizado em tempo real');
+          if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncLabel('Conexão instável',false);
+        });
+    }
+    function updateAuthUI(){const btn=$('accessBtn');if(btn){btn.textContent=authSession?'Sair da conta':'Entrar para operar';btn.title=authSession?'Sessão autenticada':'Login individual obrigatório'}$('modeLabel').textContent=app.canEdit?'Modo operação':'Modo de consulta';$('modeHelp').textContent=app.canEdit?'Edição autorizada; registros sincronizados.':authSession?'Sua função não tem permissão para editar a Lista da Vez.':'Visualização pública; somente pessoas autorizadas podem operar.'}
     function showAuth(){if(authSession){supabaseClient?.auth.signOut();return}$('authError').textContent='';$('authEmail').value='';$('authPassword').value='';$('authBackdrop').classList.remove('hidden');setTimeout(()=>$('authEmail').focus(),20)}
     function closeAuth(){$('authBackdrop').classList.add('hidden')}
-    async function submitAuth(){
-      const username=$('authEmail').value.trim(), password=$('authPassword').value;
-      const message=$('authError'), button=$('authSubmit');
-      if(!username||!password){message.textContent='Informe seu usuário e sua senha.';return}
-      button.disabled=true;
-      message.textContent='Entrando…';
-      try{
-        if(username.includes('@')){
-          const {error}=await supabaseClient.auth.signInWithPassword({email:username,password});
-          if(error)throw error;
-        }else{
-          const response=await fetch(SUPABASE_URL+'/functions/v1/elab-login',{
-            method:'POST',headers:{'content-type':'application/json',apikey:SUPABASE_KEY},
-            body:JSON.stringify({username,password})
-          });
-          const payload=await response.json();
-          if(!response.ok||!payload.access_token||!payload.refresh_token)throw new Error('Login inválido');
-          const {error}=await supabaseClient.auth.setSession({access_token:payload.access_token,refresh_token:payload.refresh_token});
-          if(error)throw error;
-        }
-        $('authPassword').value='';
-        closeAuth();
-      }catch{
-        message.textContent='Não foi possível entrar. Confira seus dados e tente novamente.';
-      }finally{
-        button.disabled=false;
-      }
-    }
-    async function handleAuthSession(session){
-      if(session?.access_token&&session.access_token===authSession?.access_token)return;
-      const version=++sessionVersion;
-      authSession=session;
-      canOperate=false;
-      app.canEdit=false;
-      cloudReady=false;
-      cloudRevision=-1;
-      clearState();
-      closeModal();
-      if(app.view==='history')app.view='lists';
-      updateAuthUI();
-      render();
-      if(session){
-        const {data}=await supabaseClient.from('elab_ops_members').select('role')
-          .eq('user_id',session.user.id).eq('active',true).maybeSingle();
-        if(version!==sessionVersion)return;
-        canOperate=operatorRoles.has(data?.role);
-      }
-      await load({force:true});
-    }
+    async function submitAuth(){const username=$('authEmail').value.trim(),password=$('authPassword').value;if(!username||!password){$('authError').textContent='Informe usuário e senha.';return}$('authSubmit').disabled=true;$('authError').textContent='Entrando…';try{const res=await fetch(SUPABASE_URL+'/functions/v1/elab-login',{method:'POST',headers:{'content-type':'application/json',apikey:SUPABASE_KEY},body:JSON.stringify({username,password})});const data=await res.json();if(!res.ok||!data.access_token||!data.refresh_token)throw new Error('Invalid credentials');const {error}=await supabaseClient.auth.setSession({access_token:data.access_token,refresh_token:data.refresh_token});if(error)throw error;$('authPassword').value='';closeAuth()}catch{$('authError').textContent='Usuário ou senha inválidos, ou serviço indisponível.'}finally{$('authSubmit').disabled=false}}
+    async function handleAuthSession(session){authSession=session;app.canEdit=false;if(session){try{const {data,error}=await supabaseClient.from('elab_ops_members').select('role').eq('user_id',session.user.id).eq('active',true).maybeSingle();app.canEdit=!error&&!!data&&['owner','director','manager','admin','hr','reception'].includes(data.role)}catch{app.canEdit=false}}updateAuthUI();if(cloudChannel){await cloudChannel.unsubscribe();cloudChannel=null;realtimeStarted=false}await load();if(!realtimeStarted){startRealtime();realtimeStarted=true}render()}
     function svc(){const s=SERVICES.find(s=>s.k===app.service);return {...s,people:app.data[app.service]?.people||s.people}}
     function cs(){return app.data[app.service]}
     function present(s=svc()){return QueueLogic.eligible(cs())}
@@ -184,32 +301,25 @@
     function renderServices(){const active=teamForService(app.service);$('serviceTabs').innerHTML=active.services.map(k=>{const s=SERVICES.find(x=>x.k===k);return `<button class="service ${k===app.service?'active':''}" data-service="${k}">${s.n}</button>`}).join('')+`<span class="count-pill">${active.services.length*2} listas nesta equipe</span>`}
     function queueOrder(queue='immediate',s=svc()){return queue==='immediate'?rotation(s):QueueLogic.inverseOrder(cs())}
     function current(s=svc(),queue='immediate'){const order=queueOrder(queue,s);return order[0]||null}
-    function personRow(p,i,now,queue){const c=cs();const status=c.absent.includes(p)?'absent':(c.occupied||[]).includes(p)?'occupied':'present';return `<div class="person ${p===now?'current-row':''}"><div class="rank">${String(i+1).padStart(2,'0')}</div><div class="person-main"><div class="person-name">${escapeHtml(p)}${p===now?'<span class="tag now">Da vez</span>':''}<span class="tag ${status==='present'?'ok':status==='occupied'?'busy':'absent'}">${status==='present'?'Presente':status==='occupied'?'Ocupado':'Ausente'}</span></div>${canOperate?`<div class="person-detail">${Number(c.weeklyCount[p])||0} atendimento${c.weeklyCount[p]===1?'':'s'}</div>`:''}</div>${app.canEdit?`<select class="status-select ${status}" data-status-person="${escapeHtml(p)}"><option value="present" ${status==='present'?'selected':''}>Presente</option><option value="occupied" ${status==='occupied'?'selected':''}>Ocupado</option><option value="absent" ${status==='absent'?'selected':''}>Ausente</option></select><button class="icon-btn" title="Editar profissional" data-edit-person="${escapeHtml(p)}">✎</button>`:''}</div>`}
-    function listCard(queue){const s=svc(), c=cs(), immediate=queue==='immediate', order=queueOrder(queue,s), now=order[0], tone=immediate?'immediate':'advance';return `<article class="panel list-card"><div class="list-head ${tone}"><div class="list-top"><div><div class="eyebrow">${immediate?'Atendimento da vez':'Próximo ciclo'}</div><div class="list-title">${immediate?'Agora':'Agenda'}</div><div class="list-rule">${immediate?'Só profissionais presentes':'Organiza o próximo ciclo da equipe'}</div></div><div class="number"><div><strong>${order.length}</strong><span>na lista</span></div></div></div><div class="current"><div><div class="current-label">Próxima da vez</div><div class="current-name">${escapeHtml(now||'Sem disponível')}</div><div class="current-meta">${now?(canOperate?`${Number(c.weeklyCount[now])||0} atendimentos · ${s.n}`:s.n):'Nenhuma profissional disponível'}</div></div>${app.canEdit&&now?`<div class="current-actions"><span class="lock-note">Operação liberada</span><button class="btn" data-next="${queue}">Passar para o próximo</button></div>`:`<span class="lock-note">🔒 Consulta</span>`}</div></div><div class="list-body"><div class="body-label"><b>Ordem da lista</b><span>${s.n}</span></div>${order.length?order.map((p,i)=>personRow(p,i,now,queue)).join(''):'<div class="empty">Nenhuma profissional presente nesta lista.</div>'}${!immediate && c.futureQueue.length?`<div style="margin-top:18px"><div class="body-label"><b>Agendamentos sem preferência</b><span>${c.futureQueue.length} registro${c.futureQueue.length===1?'':'s'}</span></div>${c.futureQueue.map((item,i)=>`<div class="history-item" style="margin-top:8px"><div class="history-head"><b>${item.nome}</b>${app.canEdit?`<button class="icon-btn" title="Apagar registro" data-delete-future="${i}">×</button>`:''}</div><small>${item.prof} · ${item.serv||s.n}${item.scheduledAt?' · '+new Date(item.scheduledAt).toLocaleString('pt-BR'):''}</small>${app.canEdit&&item.status!=='confirmed'?`<button class="btn" data-confirm-future="${item.id}">Confirmar</button>`:`<span class="tag ok">Confirmado</span>`}</div>`).join('')}</div>`:''}<div class="card-actions">${immediate?`<button class="btn primary" data-attend="${queue}" ${!app.canEdit||!now?'disabled':''}>＋ Atendeu agora · cliente sem preferência</button>`:`<button class="btn green" data-schedule="${queue}" ${!app.canEdit?'disabled':''}>＋ Agendar cliente sem preferência</button>`}</div></div></article>`}
+    function personRow(p,i,now,queue){const c=cs();const status=c.absent.includes(p)?'absent':(c.occupied||[]).includes(p)?'occupied':'present';return `<div class="person ${p===now?'current-row':''}"><div class="rank">${String(i+1).padStart(2,'0')}</div><div class="person-main"><div class="person-name">${esc(p)}${p===now?'<span class="tag now">Da vez</span>':''}<span class="tag ${status==='present'?'ok':status==='occupied'?'busy':'absent'}">${status==='present'?'Presente':status==='occupied'?'Ocupado':'Ausente'}</span></div><div class="person-detail">${c.weeklyCount[p]||0} atendimento${(c.weeklyCount[p]||0)===1?'':'s'}</div></div>${app.canEdit?`<select class="status-select ${status}" data-status-person="${esc(p)}"><option value="present" ${status==='present'?'selected':''}>Presente</option><option value="occupied" ${status==='occupied'?'selected':''}>Ocupado</option><option value="absent" ${status==='absent'?'selected':''}>Ausente</option></select><button class="icon-btn" title="Editar profissional" data-edit-person="${esc(p)}">✎</button>`:''}</div>`}
+    function listCard(queue){const s=svc(), c=cs(), immediate=queue==='immediate', order=queueOrder(queue,s), now=order[0], tone=immediate?'immediate':'advance';return `<article class="panel list-card"><div class="list-head ${tone}"><div class="list-top"><div><div class="eyebrow">${immediate?'Atendimento da vez':'Próximo ciclo'}</div><div class="list-title">${immediate?'Agora':'Agenda'}</div><div class="list-rule">${immediate?'Só profissionais presentes':'Organiza o próximo ciclo da equipe'}</div></div><div class="number"><div><strong>${order.length}</strong><span>na lista</span></div></div></div><div class="current"><div><div class="current-label">Próxima da vez</div><div class="current-name">${esc(now||'Sem disponível')}</div><div class="current-meta">${now?`${c.weeklyCount[now]||0} atendimento${(c.weeklyCount[now]||0)===1?'':'s'} · ${s.n}`:'Nenhuma profissional disponível'}</div></div>${app.canEdit&&now?`<div class="current-actions"><span class="lock-note">Operação liberada</span><button class="btn" data-next="${queue}">Passar para o próximo</button></div>`:`<span class="lock-note">🔒 Consulta</span>`}</div></div><div class="list-body"><div class="body-label"><b>Ordem da lista</b><span>${s.n}</span></div>${order.length?order.map((p,i)=>personRow(p,i,now,queue)).join(''):'<div class="empty">Nenhuma profissional presente nesta lista.</div>'}${!immediate && c.futureQueue.length?`<div style="margin-top:18px"><div class="body-label"><b>Agendamentos sem preferência</b><span>${c.futureQueue.length} registro${c.futureQueue.length===1?'':'s'}</span></div>${c.futureQueue.map((item,i)=>`<div class="history-item" style="margin-top:8px"><div class="history-head"><b>${esc(item.nome)}</b>${app.canEdit?`<button class="icon-btn" title="Apagar registro" data-delete-future="${i}">×</button>`:''}</div><small>${esc(item.prof)} · ${esc(item.serv||s.n)}${item.scheduledAt?' · '+new Date(item.scheduledAt).toLocaleString('pt-BR'):''}</small>${app.canEdit&&!['confirmed','missed','cancelled'].includes(item.status)?`<button class="btn" data-confirm-future="${esc(item.id)}">Confirmar</button><button class="btn danger" data-miss-future="${esc(item.id)}">Não confirmado</button>`:`<span class="tag ok">${item.status==='missed'?'Não confirmado':item.status==='cancelled'?'Cancelado':'Confirmado'}</span>`}</div>`).join('')}</div>`:''}<div class="card-actions">${immediate?`<button class="btn primary" data-attend="${queue}" ${!app.canEdit||!now?'disabled':''}>＋ Atendeu agora · cliente sem preferência</button>`:`<button class="btn green" data-schedule="${queue}" ${!app.canEdit?'disabled':''}>＋ Agendar cliente sem preferência</button>`}</div></div></article>`}
     function renderLists(){return `<div class="lists">${listCard('immediate')}${listCard('advance')}</div>`}
-    function renderPresence(){const s=svc(),c=cs();return `<section class="panel subpanel"><div class="eyebrow">Disponibilidade da equipe</div><h2>Presença</h2><p>Marque quem está disponível para aparecer na Lista Agora. A ordem da lista é preservada.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn green" data-presence="all">Todos presentes</button><button class="btn danger" data-presence="none">Marcar todos ausentes</button></div><div class="presence-grid">${s.people.map(p=>{const ok=!c.absent.includes(p);return `<div class="presence-item"><div><strong>${escapeHtml(p)}</strong>${canOperate?`<small>${Number(c.weeklyCount[p])||0} atendimentos registrados</small>`:''}</div><div class="presence-toggle"><button class="${ok?'present':'away'}" data-toggle-presence="${escapeHtml(p)}">${ok?'✓ Presente':'× Ausente'}</button></div></div>`}).join('')}</div></section>`}
-    function renderConference(){
-      if(!canOperate){
-        const rows=SERVICES.map(s=>{
-          const state=app.data[s.k], first=QueueLogic.order(state)[0], next=QueueLogic.inverseOrder(state)[0];
-          return `<div class="history-item"><b>${s.n}</b><p>Agora · ${escapeHtml(first||'Sem disponível')}</p><p>Próximo ciclo · ${escapeHtml(next||'Sem disponível')}</p></div>`;
-        }).join('');
-        return `<section class="panel subpanel"><h2>Conferência da fila</h2><div class="history-grid">${rows}</div></section>`;
-      }
-      const items=SERVICES.flatMap(s=>{const c=app.data[s.k];return (c.futureQueue||[]).map(x=>({...x,category:s.n}))});return `<section class="panel subpanel"><div class="eyebrow">Conferência · todos os operadores</div><h2>Conferência</h2><p>Todos os operadores podem conferir os agendamentos pendentes, separados por categoria.</p>${items.length?`<div class="history-grid">${items.map(x=>`<div class="history-item"><div class="history-head"><b>${escapeHtml(x.nome)}</b><span class="tag busy">Pendente</span></div><small>${x.category} · ${escapeHtml(x.prof||'Sem preferência')}${x.data?` · ${fmtDate(x.data)}`:''}${x.hora?` · ${escapeHtml(x.hora)}`:''}</small><p>${escapeHtml(x.serv||x.category)}</p></div>`).join('')}</div>`:'<div class="empty" style="margin-top:18px">Nenhuma conferência pendente.</div>'}</section>`}
+    function renderPresence(){const s=svc(),c=cs();return `<section class="panel subpanel"><div class="eyebrow">Disponibilidade da equipe</div><h2>Presença</h2><p>Marque quem está disponível para aparecer na Lista Agora. A ordem da lista é preservada.</p><div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:14px"><button class="btn green" data-presence="all">Todos presentes</button><button class="btn danger" data-presence="none">Marcar todos ausentes</button></div><div class="presence-grid">${s.people.map(p=>{const ok=!c.absent.includes(p);return `<div class="presence-item"><div><strong>${esc(p)}</strong><small>${c.weeklyCount[p]||0} atendimentos registrados</small></div><div class="presence-toggle"><button class="${ok?'present':'away'}" data-toggle-presence="${esc(p)}">${ok?'✓ Presente':'× Ausente'}</button></div></div>`}).join('')}</div></section>`}
+    function renderConference(){const items=SERVICES.flatMap(s=>{const c=app.data[s.k];return (c.futureQueue||[]).filter(x=>!['confirmed','missed','cancelled'].includes(x.status)).map(x=>({...x,category:s.n}))});return `<section class="panel subpanel"><div class="eyebrow">Conferência · todos os operadores</div><h2>Conferência</h2><p>Todos os operadores podem conferir os agendamentos pendentes, separados por categoria.</p>${items.length?`<div class="history-grid">${items.map(x=>`<div class="history-item"><div class="history-head"><b>${esc(x.nome)}</b><span class="tag busy">Pendente</span></div><small>${x.category} · ${esc(x.prof||'Sem preferência')}${x.data?` · ${esc(fmtDate(x.data))}`:''}${x.hora?` · ${esc(x.hora)}`:''}</small><p>${esc(x.serv||x.category)}</p></div>`).join('')}</div>`:'<div class="empty" style="margin-top:18px">Nenhuma conferência pendente.</div>'}</section>`}
     function renderHistory(){const all=SERVICES.flatMap(s=>(app.data[s.k].events||[]).filter(e=>e.type!=='only_available').map(e=>({...e,serviceCategory:s.n}))).sort((a,b)=>String(b.at).localeCompare(String(a.at)));return `<section class="panel subpanel"><div class="eyebrow">Linha do tempo auditável</div><h2>Histórico de movimentações</h2><p>Eventos reais da fila, status, atendimentos e agendamentos. Registros legados são preservados e identificados.</p><div class="history-filters"><input id="historySearch" placeholder="Buscar cliente ou profissional"><select id="historyType"><option value="">Todos os tipos</option><option value="status_change">Status</option><option value="pass">Passou a vez</option><option value="attendance">Atendimento</option><option value="appointment_created">Agendamento</option></select><select id="historyQueue"><option value="">Todas as filas</option><option>Agora</option><option>Agenda</option></select></div><div id="historyRows">${historyRows(all)}</div><details class="legend"><summary>Legenda operacional</summary><p><b>Disponível</b> participa da rotação. <b>Ocupada</b> é temporariamente indisponível e preserva a posição. <b>Ausente</b> perde a vez. <b>Passou a vez</b> avança sem atendimento. <b>Atendimento</b> só aparece após persistência da operação.</p></details></section>`}
-    function historyRows(items){return items.length?`<div class="history-grid">${items.map(x=>`<div class="history-item"><div class="history-head"><b>${x.type==='status_change'?'Status':x.type==='pass'?'Passou a vez':x.type==='attendance'?'Atendimento':x.type==='appointment_created'?'Agendamento':escapeHtml(x.type)}</b><span class="tag ${x.legacy?'busy':'ok'}">${x.legacy?'Legado':escapeHtml(x.queue||'Fila')}</span></div><small>${new Date(x.at).toLocaleString('pt-BR')} · ${x.serviceCategory}</small><p>${escapeHtml(x.client||x.professional||'')}${x.professional&&x.client?' · '+escapeHtml(x.professional):''}${x.effect?' · '+escapeHtml(x.effect):''}</p></div>`).join('')}</div>`:'<div class="empty">Nenhum evento encontrado.</div>'}
-    function render(){renderTeamTabs();renderServices();$('footerService').textContent=svc().n;$('modeLabel').textContent=app.canEdit?'Modo operação · recepção':'Modo de consulta';$('modeHelp').textContent=app.canEdit?'alterações e registros estão liberados.':'a recepção pode operar as listas quando desbloqueada.';document.querySelectorAll('#viewTabs button').forEach(b=>{b.hidden=!canOperate&&b.dataset.view==='history';b.classList.toggle('active',b.dataset.view===app.view)});$('appContent').innerHTML=app.view==='lists'?renderLists():app.view==='conference'?renderConference():app.view==='presence'?renderPresence():renderHistory();bind();}
-    function openModal(type,queue='immediate',index=null){if(!app.canEdit)return;modal={type,service:app.service,queue,index};const svcNow=svc();$('modalTitle').textContent=type==='attendance'?'Atendeu agora · cliente sem preferência':type==='schedule'?'Agendar cliente sem preferência':'Editar profissional';$('modalIntro').textContent=type==='attendance'?`${queue==='immediate'?'Lista Agora':'Lista Agenda'} · cliente sem preferência · ${svcNow.n}`:type==='schedule'?`Adicionar cliente sem preferência à lista Agenda de ${svcNow.n}.`:'A alteração será aplicada a esta categoria.';if(type==='person'){$('modalFields').innerHTML=`<div class="field"><label>Nome da profissional</label><input id="fPerson" value="${escapeHtml(index||'')}" /></div>`}else{$('modalFields').innerHTML=`<div class="field"><label>Cliente</label><input id="fName" placeholder="Nome do cliente" /></div><div class="field"><label>Serviço</label><input id="fServ" placeholder="Ex.: Corte, escova, manutenção" /></div>${type==='schedule'?`<div class="field"><label>Data prevista</label><input id="fDate" type="date" /></div><div class="field"><label>Hora prevista</label><input id="fTime" type="time" /></div>`:''}`};$('modalBackdrop').classList.remove('hidden');setTimeout(()=>($('modalFields').querySelector('input')||{}).focus?.(),30)}
+    function historyRows(items){return items.length?`<div class="history-grid">${items.map(x=>`<div class="history-item"><div class="history-head"><b>${x.type==='status_change'?'Status':x.type==='pass'?'Passou a vez':x.type==='attendance'?'Atendimento':x.type==='appointment_created'?'Agendamento':esc(x.type)}</b><span class="tag ${x.legacy?'busy':'ok'}">${x.legacy?'Legado':esc(x.queue||'Fila')}</span></div><small>${new Date(x.at).toLocaleString('pt-BR')} · ${x.serviceCategory}</small><p>${esc(x.client||x.professional||'')}${x.professional&&x.client?' · '+esc(x.professional):''}${x.effect?' · '+esc(x.effect):''}</p></div>`).join('')}</div>`:'<div class="empty">Nenhum evento encontrado.</div>'}
+    function render(){renderTeamTabs();renderServices();$('footerService').textContent=svc().n;$('modeLabel').textContent=app.canEdit?'Modo operação · recepção':'Modo de consulta';$('modeHelp').textContent=app.canEdit?'alterações e registros estão liberados.':'a recepção pode operar as listas quando desbloqueada.';document.querySelectorAll('#viewTabs button').forEach(b=>b.classList.toggle('active',b.dataset.view===app.view));$('appContent').innerHTML=app.view==='lists'?renderLists():app.view==='conference'?renderConference():app.view==='presence'?renderPresence():renderHistory();bind();}
+    function openModal(type,queue='immediate',index=null){if(!app.canEdit||!cloudReady){alert('Aguarde a sincronização para operar.');return}modal={type,service:app.service,queue,index};const svcNow=svc();$('modalTitle').textContent=type==='attendance'?'Atendeu agora · cliente sem preferência':type==='schedule'?'Agendar cliente sem preferência':'Editar profissional';$('modalIntro').textContent=type==='attendance'?`${queue==='immediate'?'Lista Agora':'Lista Agenda'} · cliente sem preferência · ${svcNow.n}`:type==='schedule'?`Adicionar cliente sem preferência à lista Agenda de ${svcNow.n}.`:'A alteração será aplicada a esta categoria.';if(type==='person'){$('modalFields').innerHTML=`<div class="field"><label>Nome da profissional</label><input id="fPerson" value="${esc(index||'')}" /></div>`}else{$('modalFields').innerHTML=`<div class="field"><label>Cliente</label><input id="fName" placeholder="Nome do cliente" /></div><div class="field"><label>Serviço</label><input id="fServ" placeholder="Ex.: Corte, escova, manutenção" /></div>${type==='schedule'?`<div class="field"><label>Data prevista</label><input id="fDate" type="date" /></div><div class="field"><label>Hora prevista</label><input id="fTime" type="time" /></div>`:''}`};$('modalBackdrop').classList.remove('hidden');setTimeout(()=>($('modalFields').querySelector('input')||{}).focus?.(),30)}
     function closeModal(){$('modalBackdrop').classList.add('hidden');modal={type:null,service:app.service,queue:'immediate',index:null}}
-    function setStatus(person,status){if(!app.canEdit)return;const c=cs(),before=c.absent.includes(person)?'absent':c.occupied.includes(person)?'occupied':'present';const next=QueueLogic.transition(c,{type:'status',person,to:status});Object.assign(c,next);recordEvent(c,{type:'status_change',category:'status',professional:person,from:before,to:status,queue:'Agora',effect:status==='absent'?'Perdeu a vez e a fila avançou':status==='occupied'?'Indisponibilidade temporária; posição preservada':'Retornou à disponibilidade'});persist();render()}
-    function passNext(queue='immediate'){if(!app.canEdit)return;const c=cs(),order=queueOrder(queue),before=order[0];if(!before)return;let next;if(queue==='immediate'){next=QueueLogic.transition(c,{type:'pass',person:before});Object.assign(c,next)}else{c.nextUp=before}recordEvent(c,{type:'pass',category:'fila',professional:before,queue:queue==='immediate'?'Agora':'Agenda',fromPosition:0,toProfessional:c.nextUp,effect:`Perdeu a vez; fila ${queue==='immediate'?'avançou':'inversa avançou'} uma posição`});persist();render()}
-    function saveModal(){if(!app.canEdit)return;
+    function setStatus(person,status){if(!app.canEdit||!cloudReady)return;const c=cs(),before=c.absent.includes(person)?'absent':c.occupied.includes(person)?'occupied':'present';const next=QueueLogic.transition(c,{type:'status',person,to:status});Object.assign(c,next);recordEvent(c,{type:'status_change',category:'status',professional:person,from:before,to:status,queue:'Agora',effect:status==='absent'?'Perdeu a vez e a fila avançou':status==='occupied'?'Indisponibilidade temporária; posição preservada':'Retornou à disponibilidade'});persist();render()}
+    function passNext(queue='immediate'){if(!app.canEdit||!cloudReady)return;const c=cs(),order=queueOrder(queue),before=order[0];if(!before)return;let next;if(queue==='immediate'){next=QueueLogic.transition(c,{type:'pass',person:before});Object.assign(c,next)}else{Object.assign(c,QueueLogic.transition(c,{type:'pass',person:before,queue:'advance'}))}recordEvent(c,{type:'pass',category:'fila',professional:before,queue:queue==='immediate'?'Agora':'Agenda',fromPosition:0,toProfessional:queue==='immediate'?c.nextUp:c.agendaNextUp,effect:`Perdeu a vez; fila ${queue==='immediate'?'Agora':'Agenda'} avançou uma posição`});persist();render()}
+    function saveModal(){
+      if(!app.canEdit||!cloudReady)return;
       const c=cs(), s=svc();
       if(modal.type==='person'){
         const val=$('fPerson').value.trim(); if(!val)return;
         const old=modal.index, idx=c.people.indexOf(old);
-        if(idx>=0){c.people[idx]=val;c.weeklyCount[val]=c.weeklyCount[old]||0;delete c.weeklyCount[old];if(c.nextUp===old)c.nextUp=val;c.absent=c.absent.map(x=>x===old?val:x);recordEvent(c,{type:'roster_change',category:'cadastro',professional:val,from:old,queue:'Agora',effect:'Cadastro alterado'});}
+        if(idx>=0&&!c.people.includes(val)){c.people[idx]=val;c.weeklyCount[val]=c.weeklyCount[old]||0;delete c.weeklyCount[old];if(c.nextUp===old)c.nextUp=val;if(c.agendaNextUp===old)c.agendaNextUp=val;c.absent=c.absent.map(x=>x===old?val:x);c.occupied=c.occupied.map(x=>x===old?val:x);recordEvent(c,{type:'roster_change',category:'cadastro',professional:val,from:old,queue:'Agora',effect:'Cadastro alterado'});}
         persist();closeModal();render();return;
       }
       const name=$('fName').value.trim(), serv=$('fServ').value.trim(); if(!name){$('fName').focus();return;}
@@ -217,17 +327,24 @@
         const person=current(); if(!person)return;
         const key='att-'+modal.service+'-'+name+'-'+person+'-'+new Date().toISOString().slice(0,16);
         if(c.events.some(e=>e.idempotencyKey===key))return;
-        c.log.push({id:Date.now(),nome:name,serv:serv||s.n,prof:person,when:new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})});
+        const logId=Date.now()*1000+Math.floor(Math.random()*1000);c.log.push({id:logId,nome:name,serv:serv||s.n,prof:person,when:new Date().toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'})});
         c.weeklyCount[person]=(c.weeklyCount[person]||0)+1;
         Object.assign(c,QueueLogic.transition(c,{type:'attendance',person}));
-        recordEvent(c,{type:'attendance',category:'atendimento',professional:person,client:name,service:serv||s.n,queue:'Agora',effect:'Fila avançou para '+(c.nextUp||'nenhuma profissional'),idempotencyKey:key});
+        recordEvent(c,{type:'attendance',category:'atendimento',professional:person,client:name,service:serv||s.n,queue:'Agora',effect:'Fila avançou para '+(c.nextUp||'nenhuma profissional'),idempotencyKey:key,logId});
         persist();closeModal();render();return;
       }
-      const item={id:eventId(),nome:name,prof:current()||s.people[0],serv:serv||s.n,createdAt:new Date().toISOString(),scheduledAt:modal.type==='schedule'?((document.getElementById('fDate')?.value||'')+'T'+(document.getElementById('fTime')?.value||'')):null,status:'scheduled'};
-      c.futureQueue.push(item);recordEvent(c,{type:'appointment_created',category:'agendamento',professional:item.prof,client:name,service:item.serv,queue:'Agenda',appointmentId:item.id,effect:'Agendamento criado; Agora não foi alterada'});persist();closeModal();render();
+      const date=$('fDate')?.value||'',time=$('fTime')?.value||'';
+      const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});
+      if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!/^\d{2}:\d{2}$/.test(time)||date<today){alert('Informe data e hora válidas, sem agendar no passado.');return}
+      const person=current(s,'advance');if(!person){alert('A fila Agenda não tem profissional disponível.');return}
+      const item={id:eventId(),nome:name,prof:person,serv:serv||s.n,createdAt:new Date().toISOString(),scheduledAt:date+'T'+time,status:'scheduled'};
+      c.futureQueue.push(item);
+      Object.assign(c,QueueLogic.transition(c,{type:'attendance',person,queue:'advance'}));
+      recordEvent(c,{type:'appointment_created',category:'agendamento',professional:item.prof,client:name,service:item.serv,queue:'Agenda',appointmentId:item.id,effect:'Agenda avançou; Agora preservada'});
+      persist();closeModal();render();
     }
-    function bind(){document.querySelectorAll('[data-team]').forEach(b=>b.onclick=()=>{app.service=TEAMS.find(t=>t.k===b.dataset.team).services[0];render()});document.querySelectorAll('[data-service]').forEach(b=>b.onclick=()=>{app.service=b.dataset.service;render()});document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{app.view=b.dataset.view;render()});document.querySelectorAll('[data-attend]').forEach(b=>b.onclick=()=>openModal('attendance',b.dataset.attend));document.querySelectorAll('[data-status-person]').forEach(b=>b.onchange=()=>setStatus(b.dataset.statusPerson,b.value));document.querySelectorAll('[data-next]').forEach(b=>b.onclick=()=>passNext(b.dataset.next));document.querySelectorAll('[data-schedule]').forEach(b=>b.onclick=()=>openModal('schedule',b.dataset.schedule));document.querySelectorAll('[data-delete-future]').forEach(b=>b.onclick=()=>{if(!app.canEdit)return;const i=Number(b.dataset.deleteFuture);if(confirm('Apagar este agendamento?')){cs().futureQueue.splice(i,1);persist();render()}});document.querySelectorAll('[data-delete-log]').forEach(b=>b.onclick=()=>{if(!app.canEdit)return;const id=Number(b.dataset.deleteLog);if(confirm('Apagar este registro de atendimento?')){const c=app.data[b.dataset.logService||app.service],item=c.log.find(x=>x.id===id);if(item){c.weeklyCount[item.prof]=Math.max(0,(c.weeklyCount[item.prof]||1)-1);c.log=c.log.filter(x=>x.id!==id);persist();render()}}});document.querySelectorAll('[data-toggle-presence]').forEach(b=>b.onclick=()=>{if(!app.canEdit)return;const p=b.dataset.togglePresence,c=cs(),target=c.absent.includes(p)?'present':'absent';setStatus(p,target)});document.querySelectorAll('[data-edit-person]').forEach(b=>b.onclick=()=>openModal('person','immediate',b.dataset.editPerson));document.querySelectorAll('[data-remove-person]').forEach(b=>b.onclick=()=>{if(!app.canEdit)return;const p=b.dataset.removePerson,s=svc(),c=cs();if(s.people.length<=1)return;if(confirm(`Retirar ${p} desta lista?`)){c.people=c.people.filter(x=>x!==p);c.absent=c.absent.filter(x=>x!==p);delete c.weeklyCount[p];if(c.nextUp===p)c.nextUp=s.people[0];persist();render()}});document.querySelectorAll('[data-confirm-future]').forEach(b=>b.onclick=()=>{if(!app.canEdit)return;for(const svcKey of Object.keys(app.data)){const item=app.data[svcKey].futureQueue.find(x=>String(x.id)===String(b.dataset.confirmFuture));if(item){if(item.status==='confirmed')return;item.status='confirmed';item.confirmedAt=new Date().toISOString();recordEvent(app.data[svcKey],{type:'appointment_confirmed',category:'agendamento',client:item.nome||'',professional:item.prof,appointmentId:item.id,queue:'Agenda',effect:'Agendamento confirmado'});persist();render();break}}});document.querySelectorAll('[data-presence]').forEach(b=>b.onclick=()=>{if(!app.canEdit)return;const before=[...cs().absent];cs().absent=b.dataset.presence==='all'?[]:[...svc().people];recordEvent(cs(),{type:'status_change',category:'status',queue:'Agora',from:before.join(', '),to:cs().absent.join(', '),effect:'Atualização coletiva de presença'});persist();render()});const hs=$('historySearch'),ht=$('historyType'),hq=$('historyQueue');if(hs&&ht&&hq){const apply=()=>{const all=SERVICES.flatMap(s=>(app.data[s.k].events||[]).filter(e=>e.type!=='only_available').map(e=>({...e,serviceCategory:s.n}))).sort((a,b)=>String(b.at).localeCompare(String(a.at)));const q=(hs.value||'').toLowerCase();$('historyRows').innerHTML=historyRows(all.filter(e=>(!q||JSON.stringify(e).toLowerCase().includes(q))&&(!ht.value||e.type===ht.value)&&(!hq.value||e.queue===hq.value)))};hs.oninput=apply;ht.onchange=apply;hq.onchange=apply}}
-    $('accessBtn').onclick=showAuth;$('authCancel').onclick=closeAuth;$('authSubmit').onclick=submitAuth;$('authBackdrop').onclick=e=>{if(e.target.id==='authBackdrop')closeAuth()};$('modalCancel').onclick=closeModal;$('modalSave').onclick=saveModal;$('modalBackdrop').onclick=e=>{if(e.target.id==='modalBackdrop')closeModal()};document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeAuth()}});clearState();updateAuthUI();render();supabaseClient?.auth.onAuthStateChange((_event,session)=>setTimeout(()=>handleAuthSession(session),0));setInterval(()=>load(),8000);
+    function bind(){document.querySelectorAll('[data-team]').forEach(b=>b.onclick=()=>{app.service=TEAMS.find(t=>t.k===b.dataset.team).services[0];render()});document.querySelectorAll('[data-service]').forEach(b=>b.onclick=()=>{app.service=b.dataset.service;render()});document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{app.view=b.dataset.view;render()});document.querySelectorAll('[data-attend]').forEach(b=>b.onclick=()=>openModal('attendance',b.dataset.attend));document.querySelectorAll('[data-status-person]').forEach(b=>b.onchange=()=>setStatus(b.dataset.statusPerson,b.value));document.querySelectorAll('[data-next]').forEach(b=>b.onclick=()=>passNext(b.dataset.next));document.querySelectorAll('[data-schedule]').forEach(b=>b.onclick=()=>openModal('schedule',b.dataset.schedule));document.querySelectorAll('[data-delete-future]').forEach(b=>b.onclick=()=>{if(!app.canEdit||!cloudReady)return;const i=Number(b.dataset.deleteFuture);if(confirm('Cancelar este agendamento e devolver a vez?')){const c=cs(),item=c.futureQueue[i];if(!item||['confirmed','missed','cancelled'].includes(item.status))return;item.status='cancelled';item.cancelledAt=new Date().toISOString();c.agendaNextUp=item.prof;recordEvent(c,{type:'appointment_cancelled',category:'agendamento',client:item.nome||'',professional:item.prof,appointmentId:item.id,queue:'Agenda',effect:'Cancelado; vez devolvida'});persist();render()}});document.querySelectorAll('[data-delete-log]').forEach(b=>b.onclick=()=>{if(!app.canEdit||!cloudReady)return;const id=Number(b.dataset.deleteLog);if(confirm('Apagar este registro de atendimento?')){const c=app.data[b.dataset.logService||app.service],item=c.log.find(x=>x.id===id);if(item){c.weeklyCount[item.prof]=Math.max(0,(c.weeklyCount[item.prof]||1)-1);c.log=c.log.filter(x=>x.id!==id);recordEvent(c,{type:'attendance_deleted',category:'atendimento',professional:item.prof,client:item.nome||'',logId:id,queue:'Agora',effect:'Atendimento excluído com rastreabilidade'});persist();render()}}});document.querySelectorAll('[data-toggle-presence]').forEach(b=>b.onclick=()=>{if(!app.canEdit)return;const p=b.dataset.togglePresence,c=cs(),target=c.absent.includes(p)?'present':'absent';setStatus(p,target)});document.querySelectorAll('[data-edit-person]').forEach(b=>b.onclick=()=>openModal('person','immediate',b.dataset.editPerson));document.querySelectorAll('[data-remove-person]').forEach(b=>b.onclick=()=>{if(!app.canEdit||!cloudReady)return;const p=b.dataset.removePerson,s=svc(),c=cs();if(s.people.length<=1)return;if(confirm(`Retirar ${p} desta lista?`)){if(c.nextUp===p)c.nextUp=QueueLogic.nextAfter(c,p);if(c.agendaNextUp===p)c.agendaNextUp=QueueLogic.nextAfter(c,p);c.people=c.people.filter(x=>x!==p);c.absent=c.absent.filter(x=>x!==p);c.occupied=c.occupied.filter(x=>x!==p);delete c.weeklyCount[p];recordEvent(c,{type:'roster_removed',category:'cadastro',professional:p,queue:'Agora',effect:'Profissional removido'});persist();render()}});document.querySelectorAll('[data-miss-future]').forEach(b=>b.onclick=()=>{if(!app.canEdit||!cloudReady)return;const c=cs(),item=c.futureQueue.find(x=>String(x.id)===String(b.dataset.missFuture));if(!item||['confirmed','missed','cancelled'].includes(item.status))return;const date=(item.scheduledAt||item.data||'').slice(0,10);const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/Sao_Paulo'});if(!date||date>today){alert('A falta só pode ser registrada na data do agendamento ou depois.');return;}item.status='missed';item.missedAt=new Date().toISOString();if(c.people.includes(item.prof))c.agendaNextUp=item.prof;recordEvent(c,{type:'appointment_missed',category:'agendamento',client:item.nome||'',professional:item.prof,appointmentId:item.id,queue:'Agenda',effect:'Agendamento não confirmado; vez devolvida ao profissional'});persist();render()});document.querySelectorAll('[data-confirm-future]').forEach(b=>b.onclick=()=>{if(!app.canEdit||!cloudReady)return;for(const svcKey of Object.keys(app.data)){const item=app.data[svcKey].futureQueue.find(x=>String(x.id)===String(b.dataset.confirmFuture));if(item){if(['confirmed','missed','cancelled'].includes(item.status))return;item.status='confirmed';item.confirmedAt=new Date().toISOString();recordEvent(app.data[svcKey],{type:'appointment_confirmed',category:'agendamento',client:item.nome||'',professional:item.prof,appointmentId:item.id,queue:'Agenda',effect:'Agendamento confirmado'});persist();render();break}}});document.querySelectorAll('[data-presence]').forEach(b=>b.onclick=()=>{if(!app.canEdit||!cloudReady)return;const before=[...cs().absent];for(const person of svc().people)Object.assign(cs(),QueueLogic.transition(cs(),{type:'status',person,to:b.dataset.presence==='all'?'present':'absent'}));recordEvent(cs(),{type:'status_change',category:'status',queue:'Agora',from:before.join(', '),to:cs().absent.join(', '),effect:'Atualização coletiva de presença'});persist();render()});const hs=$('historySearch'),ht=$('historyType'),hq=$('historyQueue');if(hs&&ht&&hq){const apply=()=>{const all=SERVICES.flatMap(s=>(app.data[s.k].events||[]).filter(e=>e.type!=='only_available').map(e=>({...e,serviceCategory:s.n}))).sort((a,b)=>String(b.at).localeCompare(String(a.at)));const q=(hs.value||'').toLowerCase();$('historyRows').innerHTML=historyRows(all.filter(e=>(!q||JSON.stringify(e).toLowerCase().includes(q))&&(!ht.value||e.type===ht.value)&&(!hq.value||e.queue===hq.value)))};hs.oninput=apply;ht.onchange=apply;hq.onchange=apply}}
+    $('accessBtn').onclick=showAuth;$('authCancel').onclick=closeAuth;$('authSubmit').onclick=submitAuth;$('authBackdrop').onclick=e=>{if(e.target.id==='authBackdrop')closeAuth()};$('modalCancel').onclick=closeModal;$('modalSave').onclick=saveModal;$('modalBackdrop').onclick=e=>{if(e.target.id==='modalBackdrop')closeModal()};document.addEventListener('keydown',e=>{if(e.key==='Escape'){closeModal();closeAuth()}});loadLocal();updateAuthUI();render();supabaseClient?.auth.getSession().then(({data})=>handleAuthSession(data.session));supabaseClient?.auth.onAuthStateChange((_event,session)=>setTimeout(()=>handleAuthSession(session),0));
   </script>
 </body>
 </html>
