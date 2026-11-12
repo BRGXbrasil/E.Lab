@@ -9,7 +9,7 @@ input,button{font:inherit;padding:.65rem;border-radius:8px;border:1px solid #b7a
 button:disabled{opacity:.5;cursor:not-allowed}.task{display:flex;justify-content:space-between;align-items:center;gap:1rem;border-top:1px solid #eee;padding:.85rem 0}
 small,.muted{color:#6e6760}.task:first-child{border:0}.task strong{display:block}form{display:flex;gap:.6rem;flex-wrap:wrap}
 #logout{float:right}.hidden{display:none}.err{color:#a22828}#state{min-height:1.4em}
-.hub-head{padding:16px 2px 5px}.hub-eyebrow{font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:#826a5c;margin:0 0 .5rem}.hub-head h1{font-size:clamp(2.1rem,5vw,3.3rem);line-height:1.1;letter-spacing:-.04em;margin:.2rem 0 .6rem}.hub-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.6rem;margin:1.35rem 0}.hub-nav a{display:flex;align-items:center;justify-content:center;min-height:48px;padding:.7rem .85rem;text-align:center;text-decoration:none;font-size:.9rem;font-weight:600;color:#352b24;border:1px solid #e3d8cd;background:#fff;border-radius:12px;transition:background .15s,border-color .15s}.hub-nav a:hover,.hub-nav a:focus-visible{background:#f7f0e9;border-color:#b5a08d}.hub-nav a.main{background:#40372e;color:#fff;border-color:#40372e}.hub-nav a.main:hover{background:#655447}.hub-intro{max-width:650px;line-height:1.55}
+.completion-card{display:flex;align-items:center;gap:20px;flex-wrap:wrap;background:white;border:1px solid #e5ddd5;border-radius:18px;padding:16px;margin:16px 0}.completion-ring{width:128px;height:128px;position:relative;flex-shrink:0}.completion-ring svg{width:100%;height:100%;transform:rotate(-90deg)}.completion-ring .track{stroke:#eee8e1;fill:none;stroke-width:11}.completion-ring .fill{stroke:#8c6b2a;fill:none;stroke-width:11;stroke-linecap:round;transition:stroke-dashoffset .4s}.completion-ring .value{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:1.8rem}.presence-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.presence-person{padding:12px;border:1px solid #e3d8cd;border-radius:12px;background:white}.presence-person strong{display:block;margin-bottom:8px}.presence-person select{width:100%;background:#faf8f5}.presence-person small{display:block;margin-top:6px}.hub-head{padding:16px 2px 5px}.hub-eyebrow{font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:#826a5c;margin:0 0 .5rem}.hub-head h1{font-size:clamp(2.1rem,5vw,3.3rem);line-height:1.1;letter-spacing:-.04em;margin:.2rem 0 .6rem}.hub-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.6rem;margin:1.35rem 0}.hub-nav a{display:flex;align-items:center;justify-content:center;min-height:48px;padding:.7rem .85rem;text-align:center;text-decoration:none;font-size:.9rem;font-weight:600;color:#352b24;border:1px solid #e3d8cd;background:#fff;border-radius:12px;transition:background .15s,border-color .15s}.hub-nav a:hover,.hub-nav a:focus-visible{background:#f7f0e9;border-color:#b5a08d}.hub-nav a.main{background:#40372e;color:#fff;border-color:#40372e}.hub-nav a.main:hover{background:#655447}.hub-intro{max-width:650px;line-height:1.55}
 @media(min-width:720px){body{max-width:1060px}.hub-nav{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .dashboard-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:.6rem;margin:1rem 0}.metric{background:#f7f3ef;padding:1rem;border-radius:10px}.metric b{display:block;font-size:1.5rem}.metric small{display:block}
 table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1px solid #e5ddd5;text-align:left;padding:.6rem;word-break:break-word}.scroll{overflow-x:auto}.dashboard-link{display:inline-block;margin:.5rem 0;color:#443326}
@@ -35,10 +35,10 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1
 <input id="reset-password" type="password" required minlength="12" placeholder="Nova senha" autocomplete="new-password">
 <input id="reset-code" type="text" required minlength="64" maxlength="64" placeholder="Código de recuperação">
 <button type="submit">Salvar nova senha</button><button type="button" id="close-reset">Cancelar</button></form></section>
-<section class="panel hidden" id="workspace"><button id="logout" type="button">Sair</button><h2>Rotinas</h2><p id="who"></p><label>Data operacional <input id="date" type="date"></label><button id="refresh" type="button">Atualizar</button><div id="tasks"></div></section>
+<section class="panel hidden" id="workspace"><button id="logout" type="button">Sair</button><h2>Rotinas</h2><p id="who"></p><label>Data operacional <input id="date" type="date"></label><button id="refresh" type="button">Atualizar</button><div id="completion" class="completion-card" aria-live="polite"></div><div id="tasks"></div></section>
 <section class="panel hidden" id="direction"><h2>Painel da Direção</h2>
 <p class="muted">Visão geral de acessos, rotinas e registros. Somente usuários autorizados visualizam este painel.</p>
-<div class="dashboard-metrics" id="metrics"></div>
+<section class="panel"><h3>Presença de toda a equipe</h3><p class="muted">Marque a situação de cada profissional na data selecionada. Os registros são compartilhados no servidor.</p><div id="presence-list" class="presence-list"></div></section><div class="dashboard-metrics" id="metrics"></div>
 <h3>Setores</h3><div id="areas"></div><h3>Pendências de programação</h3><div id="pending-schedules" class="muted"></div>
 <h3>Contas existentes</h3><div class="scroll"><table><thead><tr><th>Conta</th><th>Função</th><th>Acesso</th><th>Gestão</th></tr></thead><tbody id="registered"></tbody></table></div>
 <h3>Equipe cadastrada</h3><div class="scroll"><table><thead><tr><th>Nome</th><th>Função</th><th>Vínculo</th><th>Acesso</th></tr></thead><tbody id="staff"></tbody></table></div>
@@ -68,6 +68,54 @@ function isDue(task,date){
  return false;
 }
 function titleRow(text){const el=document.createElement("h3");el.textContent=text;return el;}
+
+function completionRing(done,total){
+ const pct=total?Math.round(done*100/total):0,circ=2*Math.PI*52,container=$("completion");
+ container.replaceChildren();const ring=document.createElement("div");ring.className="completion-ring";
+ ring.innerHTML='<svg viewBox="0 0 120 120" role="img" aria-label="Progresso das rotinas"><circle class="track" cx="60" cy="60" r="52"/><circle class="fill" cx="60" cy="60" r="52"/></svg>';
+ ring.querySelector(".fill").style.strokeDasharray=String(circ);
+ ring.querySelector(".fill").style.strokeDashoffset=String(circ*(1-pct/100));
+ const label=document.createElement("div");label.className="value";label.textContent=pct+"%";ring.append(label);
+ const info=document.createElement("div"),title=document.createElement("strong"),detail=document.createElement("p");
+ title.textContent="Execução do dia";detail.textContent=done+" de "+total+" rotinas previstas concluídas";
+ info.append(title,detail);container.append(ring,info);
+}
+async function loadPresence(role){
+ if(!directions.has(role))return;
+ const container=$("presence-list");container.replaceChildren();const date=$("date").value;
+ const [staff,presence]=await Promise.all([
+  client.rpc("elab_ops_staff_directory_list"),
+  client.from("elab_ops_staff_presence").select("staff_id,status").eq("business_date",date)
+ ]);
+ if(staff.error||presence.error){status("Não foi possível carregar a presença.",true);return;}
+ const states=new Map((presence.data||[]).map(x=>[Number(x.staff_id),x.status]));
+ const people=(staff.data||[]).slice().sort((a,b)=>String(a.display_name).localeCompare(String(b.display_name),"pt-BR"));
+ if(!people.length){container.textContent="Nenhum profissional cadastrado.";return;}
+ for(const person of people){
+  const card=document.createElement("div");card.className="presence-person";
+  const name=document.createElement("strong");name.textContent=person.display_name;
+  const select=document.createElement("select");select.setAttribute("aria-label","Presença de "+person.display_name);
+  for(const [value,label] of [["","Não marcado"],["present","Presente"],["absent","Ausente"],["busy","Ocupado"],["off","Folga"]]){
+   const option=document.createElement("option");option.value=value;option.textContent=label;select.append(option);
+  }
+  select.value=states.get(Number(person.id))||"";
+  select.onchange=async()=>{
+   const next=select.value;if(!next)return;
+   select.disabled=true;
+   try{
+    const current=await session();if(!current)throw Error("Sessão expirada");
+    const {error}=await client.from("elab_ops_staff_presence").upsert({
+     staff_id:person.id,business_date:date,status:next,recorded_by:current.user.id,updated_at:new Date().toISOString()
+    },{onConflict:"staff_id,business_date"});
+    if(error)throw error;
+    states.set(Number(person.id),next);status("Presença registrada: "+person.display_name);
+   }catch(err){select.value=states.get(Number(person.id))||"";status("Presença não salva: "+err.message,true);}
+   finally{select.disabled=false;}
+  };
+  const roleLabel=document.createElement("small");roleLabel.textContent=person.proposed_role||"Equipe";
+  card.append(name,select,roleLabel);container.append(card);
+ }
+}
 async function load(){
  status("Consultando...");$("tasks").replaceChildren();
  try{
@@ -112,7 +160,7 @@ async function load(){
     item.append(info,btn);list.append(item);
    }
   }
-  status(done+" de "+tasks.length+" rotinas previstas concluídas em "+selected);
+  completionRing(done,tasks.length);status(done+" de "+tasks.length+" rotinas previstas concluídas em "+selected);
  }catch(e){status(e.message,true);}
 }
 const directions=new Set(["owner","director","admin","hr"]);
@@ -140,7 +188,7 @@ const actions=document.createElement("td");if(role==="owner"){const linked=!!per
  $("queue-history").replaceChildren();for(const entry of history.data??[]){const tr=document.createElement("tr");for(const value of [entry.at,entry.service,entry.type,entry.professional,entry.client,entry.effect])cell(tr,value);$("queue-history").append(tr);}const log=$("activities");log.replaceChildren();for(const a of d.operatorActivity??[]){const p=document.createElement("p");const known=(accounts.data??[]).find(x=>x.user_id===a.actorId);p.textContent=(known?.email??a.actorId)+": "+a.events+" eventos";log.append(p);}if(!(d.operatorActivity??[]).length)log.textContent="Nenhum evento operacional registrado.";
 }
 
-async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();if(data?.role)await dashboard(data.role);}}
+async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();if(data?.role){await dashboard(data.role);if(directions.has(data.role))await loadPresence(data.role);}}}
 $("open-reset").onclick=()=>{$("reset-panel").classList.remove("hidden");$("reset-username").focus();};
 $("close-reset").onclick=()=>{$("reset-panel").classList.add("hidden");};
 $("reset-form").onsubmit=async e=>{e.preventDefault();status("Validando código...");const username=$("reset-username").value.trim(),password=$("reset-password").value,code=$("reset-code").value.trim();const btn=$("reset-form").querySelector('button[type="submit"]');btn.disabled=true;try{const res=await fetch(supabaseUrl+"/functions/v1/elab-reset",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username,password,code})});const data=await res.json();if(!res.ok||!data.ok){status(data.error??"Código não autorizado.",true);return;}$("reset-panel").classList.add("hidden");$("username").value=username;$("password").value=password;$("reset-password").value="";$("reset-code").value="";status("Senha atualizada. Entrando...");$("login").requestSubmit();}catch{status("Serviço de recuperação indisponível.",true);}finally{btn.disabled=false;}};
@@ -152,5 +200,5 @@ try{const response=await fetch(supabaseUrl+"/functions/v1/elab-register",{method
 };
 $("login").onsubmit=async e=>{e.preventDefault();status("Autenticando...");try{const res=await fetch(supabaseUrl+"/functions/v1/elab-login",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username:$("username").value,password:$("password").value})});const payload=await res.json();if(!res.ok||!payload.access_token||!payload.refresh_token){status("Usuário ou senha inválidos.",true);return;}const {error}=await client.auth.setSession({access_token:payload.access_token,refresh_token:payload.refresh_token});if(error){status("Não foi possível iniciar a sessão.",true);return;}$("password").value="";await refresh();}catch{status("Serviço de login indisponível.",true);}};
 $("logout").onclick=async()=>{await client.auth.signOut();await refresh();status("Sessão encerrada.");};
-$("refresh").onclick=load;$("date").onchange=load;$("refresh-dashboard").onclick=refresh;await refresh();
+$("refresh").onclick=load;$("date").onchange=async()=>{await load();const current=await session();if(current){const {data}=await client.from("elab_ops_members").select("role").eq("user_id",current.user.id).eq("active",true).maybeSingle();if(data?.role&&directions.has(data.role))await loadPresence(data.role);}};$("refresh-dashboard").onclick=refresh;await refresh();
 </script></body></html>
