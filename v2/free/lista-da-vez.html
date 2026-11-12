@@ -73,6 +73,81 @@
     }
     return next;
   }
+
+  // Deterministic operation replay on top of the newest server revision.
+  // Conflict retries never overwrite an unrelated operator's successful event.
+  function replayEvent(c,input,local){
+    const e={...input},type=e.type,agenda=e.queue==='Agenda';
+    const pointer=agenda?'agendaNextUp':'nextUp';
+    const current=()=>order({...c,nextUp:c[pointer]||c.people[0]})[0];
+    const apply=(event)=>Object.assign(c,transition(c,event));
+    if(type==='status_change'){
+      if(e.professional)apply({type:'status',person:e.professional,to:e.to});
+      else if(typeof e.to==='string'){
+        const abs=new Set(e.to.split(',').map(x=>x.trim()).filter(Boolean));
+        for(const p of c.people)apply({type:'status',person:p,to:abs.has(p)?'absent':'present'});
+      }
+    }else if(type==='pass'||type==='attendance'){
+      const person=current();if(!person)throw Error('Sem profissional disponível na fila');
+      e.professional=person;
+      if(type==='attendance'){
+        c.weeklyCount[person]=(c.weeklyCount[person]||0)+1;
+        c.log.push({id:e.logId||Date.now(),nome:e.client,serv:e.service,prof:person,when:new Date(e.at).toLocaleString('pt-BR')});
+      }
+      apply({type,person,queue:agenda?'advance':'immediate'});
+      e.toProfessional=c[pointer];
+    }else if(type==='appointment_created'){
+      const original=(local.futureQueue||[]).find(x=>String(x.id)===String(e.appointmentId));
+      if(!original)throw Error('Dados de agendamento não encontrados');
+      const person=current();if(!person)throw Error('Agenda sem profissional disponível');
+      c.futureQueue.push({...original,prof:person});e.professional=person;
+      apply({type:'attendance',person,queue:'advance'});
+    }else if(['appointment_confirmed','appointment_missed','appointment_cancelled'].includes(type)){
+      const item=(c.futureQueue||[]).find(x=>String(x.id)===String(e.appointmentId));
+      if(!item)throw Error('Agendamento não encontrado');
+      if(item.status==='confirmed'&&type!=='appointment_confirmed')throw Error('Já confirmado');
+      if(item.status==='missed'&&type!=='appointment_missed')throw Error('Falta já registrada');
+      if(item.status==='cancelled'&&type!=='appointment_cancelled')throw Error('Já cancelado');
+      if(type==='appointment_confirmed'){item.status='confirmed';item.confirmedAt=e.at}
+      if(type==='appointment_missed'){item.status='missed';item.missedAt=e.at;c.agendaNextUp=item.prof}
+      if(type==='appointment_cancelled'){item.status='cancelled';item.cancelledAt=e.at;c.agendaNextUp=item.prof}
+      e.professional=item.prof;
+    }else if(type==='roster_change'){
+      const i=c.people.indexOf(e.from),name=e.professional;
+      if(i<0||c.people.includes(name))throw Error('Cadastro conflitante');
+      c.people[i]=name;c.weeklyCount[name]=c.weeklyCount[e.from]||0;delete c.weeklyCount[e.from];
+      c.absent=c.absent.map(p=>p===e.from?name:p);
+      c.occupied=c.occupied.map(p=>p===e.from?name:p);
+      if(c.nextUp===e.from)c.nextUp=name;if(c.agendaNextUp===e.from)c.agendaNextUp=name;
+    }else if(type==='roster_removed'){
+      const p=e.professional;
+      if(c.nextUp===p)c.nextUp=nextAfter(c,p);
+      if(c.agendaNextUp===p)c.agendaNextUp=nextAfter(c,p);
+      c.people=c.people.filter(x=>x!==p);
+      c.absent=c.absent.filter(x=>x!==p);c.occupied=c.occupied.filter(x=>x!==p);
+      delete c.weeklyCount[p];
+    }else if(type==='attendance_deleted'){
+      const old=c.log.find(x=>String(x.id)===String(e.logId));
+      if(old){c.weeklyCount[old.prof]=Math.max(0,(c.weeklyCount[old.prof]||0)-1);c.log=c.log.filter(x=>String(x.id)!==String(e.logId))}
+    }else throw Error('Operação sem regra de reconciliação: '+type);
+    c.events.push(e);
+  }
+  function rebase(base,local,remote){
+    const merged=structuredClone(remote);
+    for(const key of Object.keys(local||{})){
+      const l=local[key];if(!l||!Array.isArray(l.events))continue;
+      const b=base?.[key]||{events:[]},r=merged[key];
+      if(!r)throw Error('Fila não encontrada no servidor: '+key);
+      const baseIds=new Set((b.events||[]).map(e=>e.eventId));
+      const applied=new Set((r.events||[]).map(e=>e.eventId));
+      for(const e of l.events){
+        if(!e.eventId||baseIds.has(e.eventId)||applied.has(e.eventId))continue;
+        replayEvent(r,e,l);applied.add(e.eventId);
+      }
+    }
+    return merged;
+  }
+  root.QueueSync={rebase,replayEvent};
   root.QueueLogic={unique,eligible,order,inverseOrder,nextAfter,transition};
 })(typeof window!=='undefined'?window:globalThis);
 </script>
