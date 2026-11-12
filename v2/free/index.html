@@ -17,7 +17,7 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1
 <section class="panel hidden" id="direction"><h2>Painel da Direção</h2>
 <p class="muted">Visão geral de acessos, rotinas e registros. Somente usuários autorizados visualizam este painel.</p>
 <div class="dashboard-metrics" id="metrics"></div>
-<h3>Setores</h3><div id="areas"></div>
+<h3>Setores</h3><div id="areas"></div><h3>Pendências de programação</h3><div id="pending-schedules" class="muted"></div>
 <h3>Contas existentes</h3><div class="scroll"><table><thead><tr><th>Conta</th><th>Função</th><th>Acesso</th></tr></thead><tbody id="registered"></tbody></table></div>
 <h3>Equipe cadastrada</h3><div class="scroll"><table><thead><tr><th>Nome</th><th>Função</th><th>Vínculo</th></tr></thead><tbody id="staff"></tbody></table></div>
 <h3>Registros operacionais</h3><div id="activities" class="muted"></div>
@@ -34,24 +34,33 @@ const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",ye
 $("date").value=today();
 function status(message,isError=false){$("state").textContent=message;$("state").className=isError?"err":"";}
 async function session(){return (await client.auth.getSession()).data.session;}
-async function api(method,body){const s=await session();if(!s)throw Error("Sessão expirada");const res=await fetch(supabaseUrl+"/functions/v1/operational",{
+async function api(method,body){const s=await session();if(!s)throw Error("Sessão expirada");const res=await fetch(supabaseUrl+"/functions/v1/operational"+(method==="GET"?"?date="+encodeURIComponent($("date").value):""),{
 method,headers:{authorization:"Bearer "+s.access_token,apikey:publishableKey,...(body?{"content-type":"application/json"}:{})},body:body?JSON.stringify(body):undefined
 });const json=await res.json().catch(()=>({error:"Erro de resposta"}));if(!res.ok)throw Error(json.error||"Falha de operação");return json;}
+function isDue(task,date){const d=new Date(date+"T12:00:00");if(!Number.isFinite(d.getTime()))return false;
+const day=d.getDay();if(task.cadence==="daily")return true;
+if(task.cadence==="weekly"||task.cadence==="three_per_week")return Array.isArray(task.weekdays)&&task.weekdays.includes(day);
+if(task.cadence==="monthly")return Number(task.day_of_month)===d.getDate();
+return false;}
 async function load(){status("Consultando...");$("tasks").replaceChildren();try{
+const selected=$("date").value;if(!/^\d{4}-\d{2}-\d{2}$/.test(selected))throw Error("Informe uma data válida.");
 const data=await api("GET");$("who").textContent="Permissão: "+data.role;
-for(const task of data.tasks){const item=document.createElement("div");item.className="task";const info=document.createElement("div");const heading=document.createElement("strong");heading.textContent=task.title;const details=document.createElement("small");details.textContent=task.area+" • "+task.cadence+" • "+task.when_text;info.append(heading,details);
-const controls=document.createElement("div");for(const [label,eventType] of [["Concluir","completed"],["Reabrir","reopened"]]){const btn=document.createElement("button");btn.type="button";btn.textContent=label;btn.onclick=async()=>{btn.disabled=true;try{const result=await api("POST",{taskId:task.id,businessDate:$("date").value,eventType});status(result.changed?"Evento registrado":"Situação já registrada");}catch(e){status(e.message,true);}finally{btn.disabled=false;}};controls.append(btn);}item.append(info,controls);$("tasks").append(item);}
-if(!data.tasks.length)status("Nenhuma rotina ativa para este operador.");else status(data.tasks.length+" rotinas disponíveis.");
+const tasks=(data.tasks??[]).filter(t=>isDue(t,selected));const latest=new Map((data.events??[]).map(e=>[e.task_id,e.event_type]));let done=0;
+for(const task of tasks){const completed=latest.get(task.id)==="completed";if(completed)done++;const item=document.createElement("div");item.className="task";const info=document.createElement("div");const heading=document.createElement("strong");heading.textContent=task.title;const details=document.createElement("small");details.textContent=task.area+" • "+task.when_text+" • "+(completed?"Concluída":"Pendente");info.append(heading,details);
+const btn=document.createElement("button");btn.type="button";btn.textContent=completed?"Reabrir":"Concluir";btn.onclick=async()=>{btn.disabled=true;try{const result=await api("POST",{taskId:task.id,businessDate:selected,eventType:completed?"reopened":"completed"});await load();if(!result.changed)status("Situação já registrada.");}catch(e){status(e.message,true);btn.disabled=false;}};
+item.append(info,btn);$("tasks").append(item);}
+status(tasks.length?done+" de "+tasks.length+" rotinas concluídas em "+selected:"Nenhuma rotina programada para "+selected);
 }catch(e){status(e.message,true);}}
 const directions=new Set(["owner","director","admin","hr"]);
 function cell(row,text){const td=document.createElement("td");td.textContent=String(text??"—");row.append(td);}
 function summary(label,value){const el=document.createElement("div");el.className="metric";const b=document.createElement("b"),small=document.createElement("small");b.textContent=String(value??0);small.textContent=label;el.append(b,small);return el;}
 async function dashboard(role){
  const enabled=directions.has(role);$("direction").classList.toggle("hidden",!enabled);if(!enabled)return;
- const [metrics,accounts,roster,queue]=await Promise.all([
- client.rpc("elab_ops_dashboard"),client.rpc("elab_ops_admin_users"),client.rpc("elab_ops_staff_directory_list"),client.rpc("elab_ops_queue_summary")
+ const [metrics,accounts,roster,queue,pending]=await Promise.all([
+ client.rpc("elab_ops_dashboard"),client.rpc("elab_ops_admin_users"),client.rpc("elab_ops_staff_directory_list"),client.rpc("elab_ops_queue_summary"),client.from("elab_ops_tasks").select("title,when_text,cadence").eq("active",false)
  ]);
- if(metrics.error||accounts.error||roster.error||queue.error){status("Falha ao consultar dados da direção.",true);return;}const qs=$("queue-summary");qs.replaceChildren();for(const s of queue.data?.services??[]){const p=document.createElement("p");p.textContent=s.service+": "+s.professionals+" profissionais · "+s.attendance+" atendimentos · "+s.events+" eventos · "+s.futureQueue+" agendamentos · "+s.absent+" ausentes";qs.append(p);}if(!(queue.data?.services??[]).length)qs.textContent="Sem dados disponíveis da Lista da Vez.";
+ if(metrics.error||accounts.error||roster.error||queue.error||pending.error){status("Falha ao consultar dados da direção.",true);return;}const qs=$("queue-summary");qs.replaceChildren();for(const s of queue.data?.services??[]){const p=document.createElement("p");p.textContent=s.service+": "+s.professionals+" profissionais · "+s.attendance+" atendimentos · "+s.events+" eventos · "+s.futureQueue+" agendamentos · "+s.absent+" ausentes";qs.append(p);}if(!(queue.data?.services??[]).length)qs.textContent="Sem dados disponíveis da Lista da Vez.";
+ const pend=$("pending-schedules");pend.replaceChildren();for(const task of pending.data??[]){const p=document.createElement("p");p.textContent=task.title+" — "+task.when_text+" ("+task.cadence+")";pend.append(p);}if(!(pending.data??[]).length)pend.textContent="Todas as rotinas possuem programação ativa.";
  const d=metrics.data??{};const container=$("metrics");container.replaceChildren();
  for(const [label,key] of [["Rotinas","totalTasks"],["Ativas","activeTasks"],["Registros","totalEvents"],["Concluídas","completedEvents"],["Reaberturas","reopenedEvents"],["Contas","totalAccounts"],["Operadores vinculados","assignedOperators"],["Equipe pendente","pendingStaff"],["Estados da Lista da Vez","queueStateRows"]])container.append(summary(label,d[key]));
  const a=$("areas");a.replaceChildren();for(const area of d.areas??[]){const p=document.createElement("p");p.textContent=area.area+": "+area.active+" ativas / "+area.tasks+" totais";a.append(p);}
@@ -63,5 +72,5 @@ async function dashboard(role){
 async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();if(data?.role)await dashboard(data.role);}}
 $("login").onsubmit=async e=>{e.preventDefault();status("Autenticando...");try{const res=await fetch(supabaseUrl+"/functions/v1/elab-login",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username:$("username").value,password:$("password").value})});const payload=await res.json();if(!res.ok||!payload.access_token||!payload.refresh_token){status("Usuário ou senha inválidos.",true);return;}const {error}=await client.auth.setSession({access_token:payload.access_token,refresh_token:payload.refresh_token});if(error){status("Não foi possível iniciar a sessão.",true);return;}$("password").value="";await refresh();}catch{status("Serviço de login indisponível.",true);}};
 $("logout").onclick=async()=>{await client.auth.signOut();await refresh();status("Sessão encerrada.");};
-$("refresh").onclick=load;$("refresh-dashboard").onclick=refresh;await refresh();
+$("refresh").onclick=load;$("date").onchange=load;$("refresh-dashboard").onclick=refresh;await refresh();
 </script></body></html>
