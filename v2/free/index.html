@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>E.Lab — Rotinas Operacionais</title>
+<title>Elab Hub</title>
+<meta name="description" content="Elab Hub — central de rotinas, equipe, gestão e operações da E.Lab Boutique.">
 <style>
 :root{font-family:system-ui,sans-serif;color:#302923;background:#faf8f5}body{max-width:900px;margin:2rem auto;padding:0 1rem}
 h1{font-size:1.8rem} .panel{background:white;border:1px solid #ddd5cc;border-radius:14px;padding:1.1rem;margin:1rem 0}
@@ -8,10 +9,20 @@ input,button{font:inherit;padding:.65rem;border-radius:8px;border:1px solid #b7a
 button:disabled{opacity:.5;cursor:not-allowed}.task{display:flex;justify-content:space-between;align-items:center;gap:1rem;border-top:1px solid #eee;padding:.85rem 0}
 small,.muted{color:#6e6760}.task:first-child{border:0}.task strong{display:block}form{display:flex;gap:.6rem;flex-wrap:wrap}
 #logout{float:right}.hidden{display:none}.err{color:#a22828}#state{min-height:1.4em}
+.hub-head{padding:16px 2px 5px}.hub-eyebrow{font-size:.7rem;letter-spacing:.15em;text-transform:uppercase;font-weight:700;color:#826a5c;margin:0 0 .5rem}.hub-head h1{font-size:clamp(2.1rem,5vw,3.3rem);line-height:1.1;letter-spacing:-.04em;margin:.2rem 0 .6rem}.hub-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:.6rem;margin:1.35rem 0}.hub-nav a{display:flex;align-items:center;justify-content:center;min-height:48px;padding:.7rem .85rem;text-align:center;text-decoration:none;font-size:.9rem;font-weight:600;color:#352b24;border:1px solid #e3d8cd;background:#fff;border-radius:12px;transition:background .15s,border-color .15s}.hub-nav a:hover,.hub-nav a:focus-visible{background:#f7f0e9;border-color:#b5a08d}.hub-nav a.main{background:#40372e;color:#fff;border-color:#40372e}.hub-nav a.main:hover{background:#655447}.hub-intro{max-width:650px;line-height:1.55}
+@media(min-width:720px){body{max-width:1060px}.hub-nav{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .dashboard-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:.6rem;margin:1rem 0}.metric{background:#f7f3ef;padding:1rem;border-radius:10px}.metric b{display:block;font-size:1.5rem}.metric small{display:block}
 table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1px solid #e5ddd5;text-align:left;padding:.6rem;word-break:break-word}.scroll{overflow-x:auto}.dashboard-link{display:inline-block;margin:.5rem 0;color:#443326}
 </style></head>
-<body><header><h1>E.Lab — Rotinas Operacionais</h1><p class="muted">Acesso individual com Supabase Auth. A Lista da Vez existente não é modificada.</p></header>
+<body><header class="hub-head"><p class="hub-eyebrow">E.Lab Boutique · Central operacional</p><h1>Elab Hub</h1><p class="muted hub-intro">Rotinas, recepção, estoque, limpeza, gestão e acompanhamento da equipe em um só lugar. Entre com seu acesso individual para operar.</p>
+<nav class="hub-nav" aria-label="Módulos do Elab Hub">
+<a class="main" href="#signin">Entrar e operar</a>
+<a href="#workspace">Rotinas</a>
+<a href="https://brgxbrasil.github.io/E.Lab/lista-da-vez.html">Lista da Vez</a>
+<a href="https://brgxbrasil.github.io/E.Lab/treinamentos.html">Treinamentos</a>
+<a href="https://brgxbrasil.github.io/E.Lab/procedimentos.html">Procedimentos</a>
+<a href="https://brgxbrasil.github.io/E.Lab/meu-perfil/">Meu Perfil</a>
+</nav></header>
 <section class="panel" id="signin"><h2>Entrar</h2><form id="login"><input id="username" type="text" required autocomplete="username" autocapitalize="none" placeholder="Usuário" maxlength="80"><input id="password" type="password" required autocomplete="current-password" placeholder="Senha"><button>Entrar</button></form><p><button id="open-register" type="button">Criar primeiro acesso</button> <button id="open-reset" type="button">Esqueci minha senha</button></p></section>
 <section class="panel hidden" id="registration"><h2>Primeiro acesso autorizado</h2>
 <p class="muted">Informe o nome exatamente como foi cadastrado e o código individual fornecido pelo proprietário. Não é necessário e-mail.</p>
