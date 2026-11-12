@@ -1,4 +1,4 @@
-# E.Lab Unificado 2.0 — operação gratuita
+# Elab Hub — operação gratuita
 
 ## Status verificado
 
