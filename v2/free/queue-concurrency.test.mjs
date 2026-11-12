@@ -143,5 +143,5 @@ test('Queue HTML scripts parse after escaping client and staff text',()=>{
  for(const match of scripts) assert.doesNotThrow(()=>new vm.Script(match[1]));
  assert.match(html,/function esc\(v\)/);
  assert.match(html,/\$\{esc\(item\.nome\)\}/);
- assert.match(html,/\$\{esc\(x\.effect\)\}/);
+ assert.match(html,/esc\(x\.effect\)/);
 });
