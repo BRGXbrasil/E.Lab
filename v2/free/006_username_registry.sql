@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS public.elab_ops_usernames (
  user_id uuid UNIQUE REFERENCES auth.users(id) ON DELETE CASCADE,
  active boolean NOT NULL DEFAULT false,
  created_at timestamptz DEFAULT now() NOT NULL,
- CONSTRAINT elab_username_chars CHECK (username ~ '^[a-z0-9]+(?:[ ._-][a-z0-9]+)*$')
+ CONSTRAINT elab_username_chars CHECK (username ~ '^[a-z0-9áàâãéêíóôõúçü]+(?:[ ._-][a-z0-9áàâãéêíóôõúçü]+)*$')
 );
 ALTER TABLE public.elab_ops_usernames ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.elab_ops_usernames FROM anon,authenticated;
