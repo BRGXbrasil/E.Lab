@@ -156,7 +156,7 @@
     const SUPABASE_KEY='sb_publishable_nviD65C5Y-mgrj04dwEheQ_x17AjVfL';
     const supabaseClient=window.supabase?.createClient(SUPABASE_URL,SUPABASE_KEY);
     const CLOUD_STATE_ID='lista-da-vez-principal';
-    let cloudReady=false, cloudApplying=false, cloudChannel=null, cloudRevision=0, persistBusy=false;
+    let cloudReady=false, cloudApplying=false, cloudChannel=null, cloudRevision=0, lastSyncedData=null;
     const TEAMS=[
       {k:'hair',n:'Cabeleireiros',d:'Corte, cor, finalização, tratamentos e mais',services:['hair']},
       {k:'nails',n:'Manicures',d:'Manicure padrão e serviço de gel',services:['nails','gel']},
@@ -177,49 +177,113 @@
     const syncChannel='BroadcastChannel' in window ? new BroadcastChannel('elab_lista_da_vez_sync') : null;
     const $=id=>document.getElementById(id);
     function notifySync(){syncChannel?.postMessage({type:'refresh',at:Date.now()})}
-    function syncFromStorage(){loadLocal();render()}
+    function syncFromStorage(){if(persistPending||persistRunning)return;void load().then(()=>render())}
     window.addEventListener('storage',e=>{if(e.key===stateKey)syncFromStorage()});
     syncChannel?.addEventListener('message',e=>{if(e.data?.type==='refresh')syncFromStorage()});
     function baseData(s){return {people:[...s.people],nextUp:s.people[0],agendaNextUp:s.people[0],absent:[],occupied:[],weeklyCount:Object.fromEntries(s.people.map(p=>[p,0])),log:[],events:[],futureQueue:structuredClone(defaultFuture[s.k]||[])} }
     function loadLocal(){let saved={};try{saved=JSON.parse(localStorage.getItem(stateKey)||'{}')}catch{} SERVICES.forEach(s=>{app.data[s.k]={...baseData(s),...(saved[s.k]||{})};app.data[s.k].people=(Array.isArray(app.data[s.k].people)?app.data[s.k].people:[...s.people]).filter(p=>p!=='Evinho');if(s.k==='hair'&&!app.data[s.k].people.includes('Wallace'))app.data[s.k].people.push('Wallace');app.data[s.k].weeklyCount=app.data[s.k].weeklyCount&&typeof app.data[s.k].weeklyCount==='object'?app.data[s.k].weeklyCount:{};if(!app.data[s.k].nextUp)app.data[s.k].nextUp=app.data[s.k].people[0]||null;if(!app.data[s.k].agendaNextUp)app.data[s.k].agendaNextUp=app.data[s.k].nextUp||app.data[s.k].people[0]||null;if(!( 'Wallace' in app.data[s.k].weeklyCount))app.data[s.k].weeklyCount.Wallace=0;if(app.data[s.k].nextUp==='Evinho')app.data[s.k].nextUp=app.data[s.k].people[0]||null;app.data[s.k].absent=app.data[s.k].absent.filter(p=>p!=='Evinho');delete app.data[s.k].weeklyCount.Evinho;app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[];app.data[s.k].events=Array.isArray(app.data[s.k].events)?app.data[s.k].events:[];app.data[s.k].events=Array.isArray(app.data[s.k].events)?app.data[s.k].events:[];app.data[s.k].log.forEach(x=>{if(!app.data[s.k].events.some(e=>e.legacyRef===x.id)){app.data[s.k].events.push({eventId:'legacy-'+x.id,type:'attendance',category:'atendimento',at:x.when,professional:x.prof,client:x.nome||'',service:x.serv||s.n,queue:'Agora',effect:'Registro legado preservado',legacy:true,legacyRef:x.id})}})});}
     function setSyncLabel(text,online=true){const el=$('syncStatus');if(el){el.innerHTML=`<i></i> ${text}`;el.style.color=online?'#6f5b53':'#9e615d'}}
     function normalizeCloudData(data){if(!data||typeof data!=='object')return false;SERVICES.forEach(s=>{const incoming=data[s.k];if(incoming&&typeof incoming==='object'){app.data[s.k]={...baseData(s),...incoming};app.data[s.k].people=Array.isArray(app.data[s.k].people)?app.data[s.k].people:[...s.people];app.data[s.k].weeklyCount=app.data[s.k].weeklyCount&&typeof app.data[s.k].weeklyCount==='object'?app.data[s.k].weeklyCount:{};if(!app.data[s.k].nextUp)app.data[s.k].nextUp=app.data[s.k].people[0]||null;if(!app.data[s.k].agendaNextUp)app.data[s.k].agendaNextUp=app.data[s.k].nextUp||app.data[s.k].people[0]||null;app.data[s.k].absent=Array.isArray(app.data[s.k].absent)?app.data[s.k].absent:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[];app.data[s.k].log=Array.isArray(app.data[s.k].log)?app.data[s.k].log:[];app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[];app.data[s.k].events=Array.isArray(app.data[s.k].events)?app.data[s.k].events:[]}});return true}
-    async function load(){loadLocal();if(!supabaseClient){setSyncLabel('Modo local',false);return}try{const {data,error}=await supabaseClient.from('elab_state').select('data,revision').eq('id',CLOUD_STATE_ID).maybeSingle();if(error)throw error;if(data?.data&&Object.keys(data.data).length){cloudRevision=Number(data.revision||0);cloudApplying=true;normalizeCloudData(data.data);cloudApplying=false;localStorage.setItem(stateKey,JSON.stringify(app.data));cloudReady=!!authSession&&app.canEdit;setSyncLabel(authSession?'Sincronizado em tempo real':'Visualização sincronizada · faça login para operar')}else{cloudReady=!!authSession;cloudRevision=0;if(authSession&&app.canEdit)await supabaseClient.from('elab_state').upsert({id:CLOUD_STATE_ID,data:app.data,revision:0,updated_at:new Date().toISOString()});setSyncLabel(authSession?'Sincronizado em tempo real':'Visualização local · aguardando estado')}}catch(err){console.warn('Supabase indisponível',err);setSyncLabel('Modo local · aguardando conexão',false)}}
-    let persistPending=false, persistRunning=false;
+    async function load(){
+      if(persistPending||persistRunning)return;
+      loadLocal();cloudReady=false;
+      if(!supabaseClient){setSyncLabel('Consulta indisponível',false);return}
+      try{
+        const response=await supabaseClient.from('elab_state').select('data,revision').eq('id',CLOUD_STATE_ID).maybeSingle();
+        if(response.error)throw response.error;
+        const row=response.data;
+        if(!row?.data||!Object.keys(row.data).length){setSyncLabel('Estado não disponível',false);return}
+        cloudRevision=Number(row.revision||0);
+        cloudApplying=true;normalizeCloudData(row.data);cloudApplying=false;
+        lastSyncedData=structuredClone(app.data);cloudReady=!!authSession&&app.canEdit;
+        const draft=sessionStorage.getItem(stateKey+'_unsent');
+        if(draft&&cloudReady){
+          try{
+            const saved=JSON.parse(draft);
+            app.data=QueueSync.rebase(saved.base,saved.local,lastSyncedData);
+            persistPending=true;
+          }catch(err){
+            console.error('Rascunho preservado para investigação',err);
+            setSyncLabel('Conflito em rascunho preservado',false);cloudReady=false;return;
+          }
+        }
+        localStorage.setItem(stateKey,JSON.stringify(app.data));
+        setSyncLabel(authSession?'Conectado ao servidor':'Consulta sincronizada');
+        if(persistPending)void persist();
+      }catch(err){console.warn('Falha ao consultar Supabase',err);setSyncLabel('Servidor indisponível',false)}
+    }
+    let persistPending=false,persistRunning=false,retryTimer=null;
+    function saveDraft(){
+      if(!lastSyncedData)return;
+      try{sessionStorage.setItem(stateKey+'_unsent',JSON.stringify({base:lastSyncedData,local:app.data}))}
+      catch(e){console.error('Não foi possível salvar o rascunho',e)}
+    }
+    function retrySync(){
+      if(retryTimer)clearTimeout(retryTimer);
+      retryTimer=setTimeout(()=>{retryTimer=null;if(cloudReady&&persistPending)void persist()},3000);
+    }
     async function persist(){
       localStorage.setItem(stateKey,JSON.stringify(app.data));notifySync();
       if(!supabaseClient||!authSession||!app.canEdit||!cloudReady||cloudApplying)return;
-      persistPending=true;
+      persistPending=true;saveDraft();
       if(persistRunning)return;
       persistRunning=true;
       try{
         while(persistPending){
           persistPending=false;
-          const snapshot=structuredClone(app.data),revision=cloudRevision;
-          const {data,error}=await supabaseClient.from('elab_state')
-            .update({data:snapshot,revision:revision+1,updated_at:new Date().toISOString()})
-            .eq('id',CLOUD_STATE_ID).eq('revision',revision).select('revision');
-          if(error)throw error;
-          if(!data?.length){
-            setSyncLabel('Conflito de edição · recarregue antes de continuar',false);
-            persistPending=false;
-            cloudReady=false;
-            return;
+          const snapshot=structuredClone(app.data),base=structuredClone(lastSyncedData);
+          let proposed=snapshot,revision=cloudRevision,committed=false;
+          for(let attempt=0;attempt<10;attempt++){
+            const {data,error}=await supabaseClient.from('elab_state')
+              .update({data:proposed,revision:revision+1,updated_at:new Date().toISOString()})
+              .eq('id',CLOUD_STATE_ID).eq('revision',revision).select('revision');
+            if(error)throw error;
+            if(data?.length){cloudRevision=revision+1;committed=true;break}
+            const fresh=await supabaseClient.from('elab_state')
+              .select('data,revision').eq('id',CLOUD_STATE_ID).single();
+            if(fresh.error||!fresh.data)throw fresh.error||Error('Fila não disponível');
+            revision=Number(fresh.data.revision||0);
+            proposed=QueueSync.rebase(base,snapshot,fresh.data.data);
           }
-          cloudRevision=revision+1;
-          if(persistPending)continue;
-          setSyncLabel('Sincronizado em tempo real');
+          if(!committed)throw Error('Conflito persistente após dez tentativas');
+          lastSyncedData=structuredClone(proposed);
+          if(persistPending){
+            app.data=QueueSync.rebase(snapshot,app.data,proposed);
+            saveDraft();
+          }else{
+            app.data=proposed;
+            sessionStorage.removeItem(stateKey+'_unsent');
+            localStorage.setItem(stateKey,JSON.stringify(app.data));
+            notifySync();
+          }
+          render();setSyncLabel('Sincronizado em tempo real');
         }
       }catch(err){
-        console.warn('Falha ao sincronizar',err);
-        persistPending=true;
-        setSyncLabel('Não sincronizado · conexão indisponível',false);
+        console.warn('Alterações pendentes, tentativa automática:',err);
+        persistPending=true;saveDraft();
+        setSyncLabel('Sincronização pendente · repetindo automaticamente',false);
+        retrySync();
       }finally{persistRunning=false}
     }
+    window.addEventListener('online',()=>{if(persistPending&&cloudReady)void persist()});
     function eventId(){return crypto.randomUUID?crypto.randomUUID():`evt-${Date.now()}-${Math.random().toString(16).slice(2)}`}
     function recordEvent(c,event){c.events=Array.isArray(c.events)?c.events:[];c.events.push({eventId:eventId(),at:new Date().toISOString(),...event})}
-    function startRealtime(){if(!supabaseClient)return;cloudChannel=supabaseClient.channel('elab-state-live').on('postgres_changes',{event:'*',schema:'public',table:'elab_state',filter:`id=eq.${CLOUD_STATE_ID}`},payload=>{if(payload.new?.data && Number(payload.new.revision||0)>cloudRevision){cloudRevision=Number(payload.new.revision||0);cloudApplying=true;normalizeCloudData(payload.new.data);cloudApplying=false;localStorage.setItem(stateKey,JSON.stringify(app.data));render();setSyncLabel('Sincronizado em tempo real')}}).subscribe(status=>{if(status==='SUBSCRIBED')setSyncLabel('Sincronizado em tempo real');if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncLabel('Conexão instável · tentando',false)})}
-
+    function startRealtime(){
+      if(!supabaseClient)return;
+      cloudChannel=supabaseClient.channel('elab-state-live')
+        .on('postgres_changes',{event:'*',schema:'public',table:'elab_state',filter:'id=eq.'+CLOUD_STATE_ID},payload=>{
+          if(!payload.new?.data||Number(payload.new.revision||0)<=cloudRevision)return;
+          if(persistRunning||persistPending)return;
+          cloudRevision=Number(payload.new.revision||0);
+          cloudApplying=true;normalizeCloudData(payload.new.data);cloudApplying=false;
+          lastSyncedData=structuredClone(app.data);
+          localStorage.setItem(stateKey,JSON.stringify(app.data));render();
+          setSyncLabel('Sincronizado em tempo real');
+        }).subscribe(status=>{
+          if(status==='SUBSCRIBED')setSyncLabel('Sincronizado em tempo real');
+          if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncLabel('Conexão instável',false);
+        });
+    }
     function updateAuthUI(){const btn=$('accessBtn');if(btn){btn.textContent=authSession?'Sair da conta':'Entrar para operar';btn.title=authSession?'Sessão autenticada':'Login individual obrigatório'}$('modeLabel').textContent=app.canEdit?'Modo operação':'Modo de consulta';$('modeHelp').textContent=app.canEdit?'Edição autorizada; registros sincronizados.':authSession?'Sua função não tem permissão para editar a Lista da Vez.':'Visualização pública; somente pessoas autorizadas podem operar.'}
     function showAuth(){if(authSession){supabaseClient?.auth.signOut();return}$('authError').textContent='';$('authEmail').value='';$('authPassword').value='';$('authBackdrop').classList.remove('hidden');setTimeout(()=>$('authEmail').focus(),20)}
     function closeAuth(){$('authBackdrop').classList.add('hidden')}
