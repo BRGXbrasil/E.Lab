@@ -36,7 +36,17 @@ Deno.serve(async (req: Request) => {
         .select("id,area,cadence,title,when_text,weekdays,day_of_month")
         .eq("active", true).order("area").order("title");
       if (error) return reply(503, { error: "Task lookup failed" });
-      return reply(200, { tasks: data ?? [], role: member.role });
+      const date = new URL(req.url).searchParams.get("date");
+      if (date && !/^\d{4}-\d{2}-\d{2}$/.test(date)) return reply(400, { error: "Invalid date" });
+      let events: unknown[] = [];
+      if (date) {
+        const outcome=await db.from("elab_ops_events")
+          .select("task_id,event_type,event_order").eq("business_date",date).order("event_order",{ascending:false}).limit(3000);
+        if(outcome.error)return reply(503,{error:"Event lookup failed"});
+        const seen=new Set<string>();
+        events=(outcome.data??[]).filter(e=>{if(seen.has(e.task_id))return false;seen.add(e.task_id);return true;});
+      }
+      return reply(200, { tasks: data ?? [], events, role: member.role });
     }
     if (req.method === "POST" && route === "operational") {
       const raw = await req.text();
