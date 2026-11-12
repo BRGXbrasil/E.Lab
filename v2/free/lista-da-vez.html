@@ -110,7 +110,37 @@
     function setSyncLabel(text,online=true){const el=$('syncStatus');if(el){el.innerHTML=`<i></i> ${text}`;el.style.color=online?'#6f5b53':'#9e615d'}}
     function normalizeCloudData(data){if(!data||typeof data!=='object')return false;SERVICES.forEach(s=>{const incoming=data[s.k];if(incoming&&typeof incoming==='object'){app.data[s.k]={...baseData(s),...incoming};app.data[s.k].people=Array.isArray(app.data[s.k].people)?app.data[s.k].people:[...s.people];app.data[s.k].weeklyCount=app.data[s.k].weeklyCount&&typeof app.data[s.k].weeklyCount==='object'?app.data[s.k].weeklyCount:{};if(!app.data[s.k].nextUp)app.data[s.k].nextUp=app.data[s.k].people[0]||null;if(!app.data[s.k].agendaNextUp)app.data[s.k].agendaNextUp=app.data[s.k].people[0]||null;app.data[s.k].absent=Array.isArray(app.data[s.k].absent)?app.data[s.k].absent:[];app.data[s.k].occupied=Array.isArray(app.data[s.k].occupied)?app.data[s.k].occupied:[];app.data[s.k].log=Array.isArray(app.data[s.k].log)?app.data[s.k].log:[];app.data[s.k].futureQueue=Array.isArray(app.data[s.k].futureQueue)?app.data[s.k].futureQueue:[];app.data[s.k].events=Array.isArray(app.data[s.k].events)?app.data[s.k].events:[]}});return true}
     async function load(){loadLocal();if(!supabaseClient){setSyncLabel('Modo local',false);return}try{const {data,error}=await supabaseClient.from('elab_state').select('data,revision').eq('id',CLOUD_STATE_ID).maybeSingle();if(error)throw error;if(data?.data&&Object.keys(data.data).length){cloudRevision=Number(data.revision||0);cloudApplying=true;normalizeCloudData(data.data);cloudApplying=false;localStorage.setItem(stateKey,JSON.stringify(app.data));cloudReady=!!authSession&&app.canEdit;setSyncLabel(authSession?'Sincronizado em tempo real':'Visualização sincronizada · faça login para operar')}else{cloudReady=!!authSession;cloudRevision=0;if(authSession&&app.canEdit)await supabaseClient.from('elab_state').upsert({id:CLOUD_STATE_ID,data:app.data,revision:0,updated_at:new Date().toISOString()});setSyncLabel(authSession?'Sincronizado em tempo real':'Visualização local · aguardando estado')}}catch(err){console.warn('Supabase indisponível',err);setSyncLabel('Modo local · aguardando conexão',false)}}
-    async function persist(){localStorage.setItem(stateKey,JSON.stringify(app.data));notifySync();if(!supabaseClient||!authSession||!app.canEdit||!cloudReady||cloudApplying||persistBusy)return;persistBusy=true;try{const nextRevision=cloudRevision+1;const {data,error}=await supabaseClient.from('elab_state').update({data:app.data,revision:nextRevision,updated_at:new Date().toISOString()}).eq('id',CLOUD_STATE_ID).eq('revision',cloudRevision).select('revision');if(error)throw error;if(!data?.length){setSyncLabel('Conflito detectado · recarregando',false);await load();render();return}cloudRevision=nextRevision;setSyncLabel('Sincronizado em tempo real')}catch(err){console.warn('Falha ao sincronizar',err);setSyncLabel('Não sincronizado · tentando novamente',false)}finally{persistBusy=false}}
+    let persistPending=false, persistRunning=false;
+    async function persist(){
+      localStorage.setItem(stateKey,JSON.stringify(app.data));notifySync();
+      if(!supabaseClient||!authSession||!app.canEdit||!cloudReady||cloudApplying)return;
+      persistPending=true;
+      if(persistRunning)return;
+      persistRunning=true;
+      try{
+        while(persistPending){
+          persistPending=false;
+          const snapshot=structuredClone(app.data),revision=cloudRevision;
+          const {data,error}=await supabaseClient.from('elab_state')
+            .update({data:snapshot,revision:revision+1,updated_at:new Date().toISOString()})
+            .eq('id',CLOUD_STATE_ID).eq('revision',revision).select('revision');
+          if(error)throw error;
+          if(!data?.length){
+            setSyncLabel('Conflito de edição · recarregue antes de continuar',false);
+            persistPending=false;
+            cloudReady=false;
+            return;
+          }
+          cloudRevision=revision+1;
+          if(persistPending)continue;
+          setSyncLabel('Sincronizado em tempo real');
+        }
+      }catch(err){
+        console.warn('Falha ao sincronizar',err);
+        persistPending=true;
+        setSyncLabel('Não sincronizado · conexão indisponível',false);
+      }finally{persistRunning=false}
+    }
     function eventId(){return crypto.randomUUID?crypto.randomUUID():`evt-${Date.now()}-${Math.random().toString(16).slice(2)}`}
     function recordEvent(c,event){c.events=Array.isArray(c.events)?c.events:[];c.events.push({eventId:eventId(),at:new Date().toISOString(),...event})}
     function startRealtime(){if(!supabaseClient)return;cloudChannel=supabaseClient.channel('elab-state-live').on('postgres_changes',{event:'*',schema:'public',table:'elab_state',filter:`id=eq.${CLOUD_STATE_ID}`},payload=>{if(payload.new?.data && Number(payload.new.revision||0)>cloudRevision){cloudRevision=Number(payload.new.revision||0);cloudApplying=true;normalizeCloudData(payload.new.data);cloudApplying=false;localStorage.setItem(stateKey,JSON.stringify(app.data));render();setSyncLabel('Sincronizado em tempo real')}}).subscribe(status=>{if(status==='SUBSCRIBED')setSyncLabel('Sincronizado em tempo real');if(status==='CHANNEL_ERROR'||status==='TIMED_OUT')setSyncLabel('Conexão instável · tentando',false)})}
