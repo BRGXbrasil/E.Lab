@@ -10,7 +10,7 @@ small,.muted{color:#6e6760}.task:first-child{border:0}.task strong{display:block
 #logout{float:right}.hidden{display:none}.err{color:#a22828}#state{min-height:1.4em}
 </style></head>
 <body><header><h1>E.Lab — Rotinas Operacionais</h1><p class="muted">Acesso individual com Supabase Auth. A Lista da Vez existente não é modificada.</p></header>
-<section class="panel" id="signin"><h2>Entrar</h2><form id="login"><input id="email" type="email" required autocomplete="username" placeholder="E-mail"><input id="password" type="password" required autocomplete="current-password" placeholder="Senha"><button>Entrar</button></form></section>
+<section class="panel" id="signin"><h2>Entrar</h2><form id="login"><input id="username" type="text" required autocomplete="username" autocapitalize="none" placeholder="Usuário" maxlength="80"><input id="password" type="password" required autocomplete="current-password" placeholder="Senha"><button>Entrar</button></form></section>
 <section class="panel hidden" id="workspace"><button id="logout" type="button">Sair</button><h2>Rotinas</h2><p id="who"></p><label>Data operacional <input id="date" type="date"></label><button id="refresh" type="button">Atualizar</button><div id="tasks"></div></section>
 <p id="state" role="status"></p>
 <script type="module">
@@ -33,7 +33,7 @@ const controls=document.createElement("div");for(const [label,eventType] of [["C
 if(!data.tasks.length)status("Nenhuma rotina ativa para este operador.");else status(data.tasks.length+" rotinas disponíveis.");
 }catch(e){status(e.message,true);}}
 async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);if(s)await load();}
-$("login").onsubmit=async e=>{e.preventDefault();status("Autenticando...");const {error}=await client.auth.signInWithPassword({email:$("email").value,password:$("password").value});if(error){status("Não foi possível entrar.",true);return;}await refresh();};
+$("login").onsubmit=async e=>{e.preventDefault();status("Autenticando...");try{const res=await fetch(supabaseUrl+"/functions/v1/elab-login",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username:$("username").value,password:$("password").value})});const payload=await res.json();if(!res.ok||!payload.access_token||!payload.refresh_token){status("Usuário ou senha inválidos.",true);return;}const {error}=await client.auth.setSession({access_token:payload.access_token,refresh_token:payload.refresh_token});if(error){status("Não foi possível iniciar a sessão.",true);return;}$("password").value="";await refresh();}catch{status("Serviço de login indisponível.",true);}};
 $("logout").onclick=async()=>{await client.auth.signOut();await refresh();status("Sessão encerrada.");};
 $("refresh").onclick=load;await refresh();
 </script></body></html>
