@@ -48,13 +48,13 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1
 <p id="password-change-result" role="status" class="muted"></p>
 </details></section>
 <section class="panel hidden" id="stock-reference" aria-labelledby="stock-title">
-<h2 id="stock-title">Estoque AVEC · Reposição em 30 dias</h2><p>Repor a diferença até o mínimo quando o saldo estiver abaixo do mínimo e as saídas por venda e consumo dos 30 dias superarem o saldo. Quantidades em embalagens equivalentes.</p>
+<h2 id="stock-title">Estoque AVEC · Pedido com entrega em 10 dias</h2><p>O giro de 30 dias define o que entra no pedido. A média diária projeta as saídas até a entrega em 10 dias. Compre em embalagens inteiras o que faltar para atingir o mínimo na chegada.</p>
 <p id="stock-source" class="muted"></p>
 <div class="dashboard-metrics" id="stock-metrics"></div>
 <label>Buscar produto <input id="stock-search" type="search" placeholder="Produto, marca ou código"></label>
 <label> Situação <select id="stock-filter"><option value="repor">Repor</option><option value="sem_reposicao">Sem reposição pelo giro</option><option value="conferir">A conferir</option><option value="all">Todos</option></select></label>
 <p id="stock-count" role="status" class="muted"></p><p class="muted">* Há saídas ou produtos com correspondência a conferir. O total mostra apenas o que foi confirmado.</p>
-<div class="scroll"><table><thead><tr><th>Produto</th><th>Marca</th><th>Saldo</th><th>Mínimo</th><th>Saídas em 30 dias</th><th>A repor</th><th>Situação</th></tr></thead><tbody id="stock-rows"></tbody></table></div>
+<div class="scroll"><table><thead><tr><th>Produto</th><th>Marca</th><th>Saldo</th><th>Mínimo</th><th>Saídas em 30 dias</th><th>Saídas previstas em 10 dias</th><th>Saldo na entrega</th><th>Pedir agora</th><th>Falta antes da entrega</th><th>Situação</th></tr></thead><tbody id="stock-rows"></tbody></table></div>
 </section>
 <section class="panel hidden" id="direction"><h2>Painel da Direção</h2>
 <p class="muted">Visão geral de acessos, rotinas e registros. Somente usuários autorizados visualizam este painel.</p>
@@ -225,7 +225,8 @@ function drawStock(){
   cell(row,r.product+(r.ambiguous?" (cadastro repetido)":""));cell(row,r.brand||"—");
   cell(row,stockValue(r.rule_balance));cell(row,stockValue(r.minimum));
   cell(row,stockValue(r.outflow_30d)+(r.outflow_needs_review&&r.outflow_30d!=null?" confirmadas*":""));
-  cell(row,stockValue(r.suggested_quantity));cell(row,stockLabel[r.replenishment_status]);
+  cell(row,stockValue(r.projected_outflow_to_delivery));cell(row,stockValue(r.balance_at_delivery));
+  cell(row,stockValue(r.order_units));cell(row,stockValue(r.shortage_before_delivery));cell(row,stockLabel[r.replenishment_status]);
   body.append(row);
  }
 }
@@ -233,16 +234,16 @@ async function loadStockReference(role){
  const section=$("stock-reference");section.classList.toggle("hidden",!stockRoles.has(role));
  if(!stockRoles.has(role)){stockReference=[];return;}
  $("stock-source").textContent="Consultando referência…";
- const cols="product,brand,barcode,internal_code,minimum,rule_balance,outflow_30d,outflow_needs_review,suggested_quantity,replenishment_status,ambiguous,source_generated_at,page,row_number,source_id,stock_reference_date,sales_from";
+ const cols="product,brand,barcode,internal_code,minimum,rule_balance,outflow_30d,outflow_needs_review,suggested_quantity,replenishment_status,ambiguous,source_generated_at,page,row_number,source_id,stock_reference_date,sales_from,expected_delivery_on,projected_outflow_to_delivery,balance_at_delivery,shortage_before_delivery,order_units";
  const {data,error}=await client.from("elab_ops_stock_replenishment").select(cols).order("source_generated_at",{ascending:false}).order("page").order("row_number").limit(1000);
  stockReference=[];
  if(error){$("stock-source").textContent="Não foi possível consultar a referência de estoque.";}
  else {
   const source=data?.[0];
   stockReference=(data||[]).filter(row=>row.source_id===source?.source_id);
-  $("stock-source").textContent=source?.stock_reference_date?"Saldo de "+stockDate(source.stock_reference_date)+" · saídas de "+stockDate(source.sales_from)+" a "+stockDate(source.stock_reference_date)+". Atualize o saldo antes de comprar.":"Sem referência de estoque com saídas de 30 dias.";
+  $("stock-source").textContent=source?.stock_reference_date?"Saldo de "+stockDate(source.stock_reference_date)+" · saídas de "+stockDate(source.sales_from)+" a "+stockDate(source.stock_reference_date)+" · entrega simulada em "+stockDate(source.expected_delivery_on)+". Atualize os dados antes de comprar.":"Sem referência de estoque com saídas de 30 dias.";
  }
- $("stock-metrics").replaceChildren(...[["Produtos a repor","repor"],["Abaixo do mínimo, sem reposição pelo giro","sem_reposicao"],["A conferir","conferir"]].map(([title,key])=>summary(title,stockReference.filter(r=>r.replenishment_status===key).length)));
+ $("stock-metrics").replaceChildren(...[["Produtos a repor","repor"],["Abaixo do mínimo, sem reposição pelo giro","sem_reposicao"],["A conferir","conferir"]].map(([title,key])=>summary(title,stockReference.filter(r=>r.replenishment_status===key).length)),summary("Risco de acabar antes da entrega",stockReference.filter(r=>r.shortage_before_delivery>0).length));
  drawStock();
 }
 $("stock-search").oninput=drawStock;
