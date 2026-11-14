@@ -48,13 +48,13 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1
 <p id="password-change-result" role="status" class="muted"></p>
 </details></section>
 <section class="panel hidden" id="stock-reference" aria-labelledby="stock-title">
-<h2 id="stock-title">Estoque AVEC</h2>
+<h2 id="stock-title">Estoque AVEC · Reposição em 30 dias</h2><p>Repor a diferença até o mínimo quando o saldo estiver abaixo do mínimo e as saídas por venda e consumo dos 30 dias superarem o saldo. Quantidades em embalagens equivalentes.</p>
 <p id="stock-source" class="muted"></p>
 <div class="dashboard-metrics" id="stock-metrics"></div>
 <label>Buscar produto <input id="stock-search" type="search" placeholder="Produto, marca ou código"></label>
-<label> Situação <select id="stock-filter"><option value="abaixo">Abaixo do mínimo</option><option value="no_minimo">No mínimo</option><option value="conferir">A conferir</option><option value="all">Todos</option></select></label>
-<p id="stock-count" role="status" class="muted"></p>
-<div class="scroll"><table><thead><tr><th>Produto</th><th>Marca</th><th>Saldo do relatório</th><th>Mínimo</th><th>Falta</th></tr></thead><tbody id="stock-rows"></tbody></table></div>
+<label> Situação <select id="stock-filter"><option value="repor">Repor</option><option value="sem_reposicao">Sem reposição pelo giro</option><option value="conferir">A conferir</option><option value="all">Todos</option></select></label>
+<p id="stock-count" role="status" class="muted"></p><p class="muted">* Há saídas ou produtos com correspondência a conferir. O total mostra apenas o que foi confirmado.</p>
+<div class="scroll"><table><thead><tr><th>Produto</th><th>Marca</th><th>Saldo</th><th>Mínimo</th><th>Saídas em 30 dias</th><th>A repor</th><th>Situação</th></tr></thead><tbody id="stock-rows"></tbody></table></div>
 </section>
 <section class="panel hidden" id="direction"><h2>Painel da Direção</h2>
 <p class="muted">Visão geral de acessos, rotinas e registros. Somente usuários autorizados visualizam este painel.</p>
@@ -210,24 +210,22 @@ const actions=document.createElement("td");if(role==="owner"){const linked=!!per
 
 const stockRoles=new Set(["owner","admin","director","manager","controls"]);
 let stockReference=[];
-function stockStatus(row){
- if(row.minimum===0)return "minimo_desativado";
- if(row.comparable_balance===null)return "conferir";
- return row.comparable_balance<row.minimum?"abaixo":row.comparable_balance===row.minimum?"no_minimo":"acima";
-}
-const stockNumber=new Intl.NumberFormat("pt-BR",{maximumFractionDigits:3});
+const stockLabel={repor:"Repor",sem_reposicao:"Sem reposição pelo giro",saldo_suficiente:"Saldo suficiente",conferir:"Conferir saldo ou saídas",minimo_desativado:"Mínimo desativado"};
+const stockNumber=new Intl.NumberFormat("pt-BR",{maximumFractionDigits:6});
+const stockValue=value=>value==null?"—":stockNumber.format(value);
+const stockDate=value=>value?.split("-").reverse().join("/");
 function drawStock(){
  const query=$("stock-search").value.trim().toLocaleLowerCase("pt-BR");
  const mode=$("stock-filter").value;
- const matches=stockReference.filter(r=>(mode==="all"||mode===stockStatus(r))&&[r.product,r.brand,r.barcode,r.internal_code].join(" ").toLocaleLowerCase("pt-BR").includes(query));
- $("stock-count").textContent=matches.length+" linhas"+(matches.length>150?" · primeiras 150 exibidas. Use a busca para refinar.":"");
+ const matches=stockReference.filter(r=>(mode==="all"||mode===r.replenishment_status)&&[r.product,r.brand,r.barcode,r.internal_code].join(" ").toLocaleLowerCase("pt-BR").includes(query));
+ $("stock-count").textContent=matches.length+" produtos"+(matches.length>150?" · primeiros 150 exibidos. Use a busca para refinar.":"");
  const body=$("stock-rows");body.replaceChildren();
  for(const r of matches.slice(0,150)){
   const row=document.createElement("tr");
   cell(row,r.product+(r.ambiguous?" (cadastro repetido)":""));cell(row,r.brand||"—");
-  cell(row,r.reported_balance==="(!)"?"Alerta AVEC sem quantidade":r.reported_balance||"A conferir");
-  cell(row,stockNumber.format(r.minimum)+" "+r.unit);
-  cell(row,stockStatus(r)==="abaixo"?stockNumber.format(r.minimum-r.comparable_balance)+" "+r.unit:"—");
+  cell(row,stockValue(r.rule_balance));cell(row,stockValue(r.minimum));
+  cell(row,stockValue(r.outflow_30d)+(r.outflow_needs_review&&r.outflow_30d!=null?" confirmadas*":""));
+  cell(row,stockValue(r.suggested_quantity));cell(row,stockLabel[r.replenishment_status]);
   body.append(row);
  }
 }
@@ -235,13 +233,16 @@ async function loadStockReference(role){
  const section=$("stock-reference");section.classList.toggle("hidden",!stockRoles.has(role));
  if(!stockRoles.has(role)){stockReference=[];return;}
  $("stock-source").textContent="Consultando referência…";
- const cols="product,brand,barcode,internal_code,minimum,unit,reported_balance,comparable_balance,ambiguous,source_generated_at,page,row_number,source_id";
- const {data,error}=await client.from("elab_ops_stock_reference").select(cols).order("source_generated_at",{ascending:false}).order("page").order("row_number").limit(1000);
- if(error){stockReference=[];drawStock();$("stock-source").textContent="Não foi possível consultar a referência de estoque.";return;}
- const source=data?.[0];
- stockReference=(data||[]).filter(row=>row.source_id===source?.source_id);
- $("stock-source").textContent=source?"Referência histórica · PDF gerado em "+new Date(source.source_generated_at).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})+". Confira o saldo atual no AVEC antes de comprar.":"Sem referência de estoque disponível.";
- $("stock-metrics").replaceChildren(...[["Abaixo","abaixo"],["No mínimo","no_minimo"],["A conferir","conferir"]].map(([title,key])=>summary(title,stockReference.filter(r=>stockStatus(r)===key).length)));
+ const cols="product,brand,barcode,internal_code,minimum,rule_balance,outflow_30d,outflow_needs_review,suggested_quantity,replenishment_status,ambiguous,source_generated_at,page,row_number,source_id,stock_reference_date,sales_from";
+ const {data,error}=await client.from("elab_ops_stock_replenishment").select(cols).order("source_generated_at",{ascending:false}).order("page").order("row_number").limit(1000);
+ stockReference=[];
+ if(error){$("stock-source").textContent="Não foi possível consultar a referência de estoque.";}
+ else {
+  const source=data?.[0];
+  stockReference=(data||[]).filter(row=>row.source_id===source?.source_id);
+  $("stock-source").textContent=source?.stock_reference_date?"Saldo de "+stockDate(source.stock_reference_date)+" · saídas de "+stockDate(source.sales_from)+" a "+stockDate(source.stock_reference_date)+". Atualize o saldo antes de comprar.":"Sem referência de estoque com saídas de 30 dias.";
+ }
+ $("stock-metrics").replaceChildren(...[["Produtos a repor","repor"],["Abaixo do mínimo, sem reposição pelo giro","sem_reposicao"],["A conferir","conferir"]].map(([title,key])=>summary(title,stockReference.filter(r=>r.replenishment_status===key).length)));
  drawStock();
 }
 $("stock-search").oninput=drawStock;
