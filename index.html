@@ -47,6 +47,15 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1
 </form>
 <p id="password-change-result" role="status" class="muted"></p>
 </details></section>
+<section class="panel hidden" id="stock-reference" aria-labelledby="stock-title">
+<h2 id="stock-title">Estoque AVEC</h2>
+<p id="stock-source" class="muted"></p>
+<div class="dashboard-metrics" id="stock-metrics"></div>
+<label>Buscar produto <input id="stock-search" type="search" placeholder="Produto, marca ou código"></label>
+<label> Situação <select id="stock-filter"><option value="abaixo">Abaixo do mínimo</option><option value="no_minimo">No mínimo</option><option value="conferir">A conferir</option><option value="all">Todos</option></select></label>
+<p id="stock-count" role="status" class="muted"></p>
+<div class="scroll"><table><thead><tr><th>Produto</th><th>Marca</th><th>Saldo do relatório</th><th>Mínimo</th><th>Falta</th></tr></thead><tbody id="stock-rows"></tbody></table></div>
+</section>
 <section class="panel hidden" id="direction"><h2>Painel da Direção</h2>
 <p class="muted">Visão geral de acessos, rotinas e registros. Somente usuários autorizados visualizam este painel.</p>
 <section class="panel"><h3>Presença de toda a equipe</h3><p class="muted">Marque a situação de cada profissional na data selecionada. Os registros são compartilhados no servidor.</p><div id="presence-list" class="presence-list"></div></section><div class="dashboard-metrics" id="metrics"></div>
@@ -199,7 +208,45 @@ const actions=document.createElement("td");if(role==="owner"){const linked=!!per
  $("queue-history").replaceChildren();for(const entry of history.data??[]){const tr=document.createElement("tr");for(const value of [entry.at,entry.service,entry.type,entry.professional,entry.client,entry.effect])cell(tr,value);$("queue-history").append(tr);}const log=$("activities");log.replaceChildren();for(const a of d.operatorActivity??[]){const p=document.createElement("p");const known=(accounts.data??[]).find(x=>x.user_id===a.actorId);p.textContent=(known?.email??a.actorId)+": "+a.events+" eventos";log.append(p);}if(!(d.operatorActivity??[]).length)log.textContent="Nenhum evento operacional registrado.";
 }
 
-async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();if(data?.role){await dashboard(data.role);if(directions.has(data.role))await loadPresence(data.role);}}}
+const stockRoles=new Set(["owner","admin","director","manager","controls"]);
+let stockReference=[];
+function stockStatus(row){
+ if(row.minimum===0)return "minimo_desativado";
+ if(row.comparable_balance===null)return "conferir";
+ return row.comparable_balance<row.minimum?"abaixo":row.comparable_balance===row.minimum?"no_minimo":"acima";
+}
+const stockNumber=new Intl.NumberFormat("pt-BR",{maximumFractionDigits:3});
+function drawStock(){
+ const query=$("stock-search").value.trim().toLocaleLowerCase("pt-BR");
+ const mode=$("stock-filter").value;
+ const matches=stockReference.filter(r=>(mode==="all"||mode===stockStatus(r))&&[r.product,r.brand,r.barcode,r.internal_code].join(" ").toLocaleLowerCase("pt-BR").includes(query));
+ $("stock-count").textContent=matches.length+" linhas"+(matches.length>150?" · primeiras 150 exibidas. Use a busca para refinar.":"");
+ const body=$("stock-rows");body.replaceChildren();
+ for(const r of matches.slice(0,150)){
+  const row=document.createElement("tr");
+  cell(row,r.product+(r.ambiguous?" (cadastro repetido)":""));cell(row,r.brand||"—");
+  cell(row,r.reported_balance==="(!)"?"Alerta AVEC sem quantidade":r.reported_balance||"A conferir");
+  cell(row,stockNumber.format(r.minimum)+" "+r.unit);
+  cell(row,stockStatus(r)==="abaixo"?stockNumber.format(r.minimum-r.comparable_balance)+" "+r.unit:"—");
+  body.append(row);
+ }
+}
+async function loadStockReference(role){
+ const section=$("stock-reference");section.classList.toggle("hidden",!stockRoles.has(role));
+ if(!stockRoles.has(role)){stockReference=[];return;}
+ $("stock-source").textContent="Consultando referência…";
+ const cols="product,brand,barcode,internal_code,minimum,unit,reported_balance,comparable_balance,ambiguous,source_generated_at,page,row_number,source_id";
+ const {data,error}=await client.from("elab_ops_stock_reference").select(cols).order("source_generated_at",{ascending:false}).order("page").order("row_number").limit(1000);
+ if(error){stockReference=[];drawStock();$("stock-source").textContent="Não foi possível consultar a referência de estoque.";return;}
+ const source=data?.[0];
+ stockReference=(data||[]).filter(row=>row.source_id===source?.source_id);
+ $("stock-source").textContent=source?"Referência histórica · PDF gerado em "+new Date(source.source_generated_at).toLocaleDateString("pt-BR",{timeZone:"America/Sao_Paulo"})+". Confira o saldo atual no AVEC antes de comprar.":"Sem referência de estoque disponível.";
+ $("stock-metrics").replaceChildren(...[["Abaixo","abaixo"],["No mínimo","no_minimo"],["A conferir","conferir"]].map(([title,key])=>summary(title,stockReference.filter(r=>stockStatus(r)===key).length)));
+ drawStock();
+}
+$("stock-search").oninput=drawStock;
+$("stock-filter").onchange=drawStock;
+async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");$("stock-reference").classList.add("hidden");stockReference=[];if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();if(data?.role){await loadStockReference(data.role);await dashboard(data.role);if(directions.has(data.role))await loadPresence(data.role);}}}
 $("open-reset").onclick=()=>{$("reset-panel").classList.remove("hidden");$("reset-username").focus();};
 $("close-reset").onclick=()=>{$("reset-panel").classList.add("hidden");};
 $("reset-form").onsubmit=async e=>{e.preventDefault();status("Validando código...");const username=$("reset-username").value.trim(),password=$("reset-password").value,code=$("reset-code").value.trim();const btn=$("reset-form").querySelector('button[type="submit"]');btn.disabled=true;try{const res=await fetch(supabaseUrl+"/functions/v1/elab-reset",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username,password,code})});const data=await res.json();if(!res.ok||!data.ok){status(data.error??"Código não autorizado.",true);return;}$("reset-panel").classList.add("hidden");$("username").value=username;$("password").value=password;$("reset-password").value="";$("reset-code").value="";status("Senha atualizada. Entrando...");$("login").requestSubmit();}catch{status("Serviço de recuperação indisponível.",true);}finally{btn.disabled=false;}};
