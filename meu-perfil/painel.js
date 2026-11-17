@@ -7,7 +7,7 @@ export function mountProfilePanel({client,container}){
  async function setRole(nextRole){
   clear();const activeMount=mount;if(!allowedRoles.has(nextRole))return;role=nextRole;container.hidden=false;
   const heading=node('h2','Meu Perfil · Recepção');
-  const link=node('a','Abrir formulário para a cliente');link.href='https://brgxbrasil.github.io/Meu-perfil/';link.target='_blank';link.rel='noopener noreferrer';link.className='dashboard-link';
+  const link=node('a','Abrir formulário para a cliente');link.href='https://brgxbrasil.github.io/E.Lab/meu-perfil/';link.target='_blank';link.rel='noopener noreferrer';link.className='dashboard-link';
   const input=node('input');input.type='search';input.placeholder='Buscar pelo nome';input.setAttribute('aria-label','Buscar perfis pelo nome');input.style.width='100%';
   const status=node('p');status.setAttribute('role','status');
   const list=node('div');list.className='profile-records';
