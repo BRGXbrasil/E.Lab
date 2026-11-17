@@ -48,10 +48,9 @@ test('Resultados reproduz seções do relatório sem copiar diagnósticos do Bar
  const module=read('src/performance-report.js').replace(/^import .*?;\n/gm,'').replace(/export /g,'');
  const code=read('src/core.js').replace(/export /g,'')+'\n'+fs.readFileSync('src/performance-report.js','utf8').replace(/^import .*?;\n/gm,'').replace(/export /g,'')+'\n'+module+'\n'+read('src/client.js').replace('// __FEATURE_CLIENT__',read('src/feature-client.js')+'\n'+read('src/avec-client.js')).split("try{C=await request('/catalog.json')")[0];
  vm.runInContext(code,context);context.fixture=fixture;vm.runInContext(`C=${read('src/catalog.json')};session={role:'admin',name:'Owner'};presenceState={staff:[],shifts:[]};resultState.services=fixture;resultFrom='2026-10-01';resultTo='2026-11-30';view='results';render()`,context);
- for(const label of ['Visão executiva','Performance por profissional','Evolução mensal','Serviços e carteira','Oportunidades observadas','Carteira do salão','Rotatividade','AVEC 0031'])assert.ok(el.innerHTML.includes(label),label);
- for(const heading of ['01 · Visão executiva','02 · Performance por profissional','03 · Evolução mensal','04 · Serviços e carteira','05 · Oportunidades observadas','06 · Direcionamento','Serviços por profissional e mês'])assert.equal(el.innerHTML.split(`<h2>${heading}</h2>`).length-1,1,heading+' deve aparecer uma vez');
- let sectionDepth=0;
- for(const tag of el.innerHTML.match(/<\/?section\b[^>]*>/g)||[]){sectionDepth+=tag.startsWith('</')?-1:1;assert.ok(sectionDepth>=0&&sectionDepth<=1,'cards de relatório não devem ficar aninhados ou fechar sem abertura');}
- assert.equal(sectionDepth,0,'todos os cards devem fechar');
+ for(const label of ['Visão executiva','Evolução acumulada','Serviços, categorias e carteira','Carteira e oportunidades','Direcionamento de evolução','Carteira do salão','AVEC 0031','Taxa de ocupação','Avaliação interna','Não informada'])assert.ok(el.innerHTML.includes(label),label);
+ assert.equal((el.innerHTML.match(/class="page performance-page"/g)||[]).length,5,'cinco páginas do modelo individual');
+ assert.ok(el.innerHTML.includes('data-action="performance-print"'));
+ assert.ok(!el.innerHTML.includes('Juliana Marques'));
  assert.ok(!el.innerHTML.includes('Barú'));assert.ok(!el.innerHTML.includes('ClassPass'));
 });
