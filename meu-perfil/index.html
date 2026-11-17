@@ -239,18 +239,18 @@ function render(){
   app.innerHTML=`<section class="cover"><div>
   <h1 tabindex="-1">Meu perfil <em>E.Lab</em></h1>
   
-  <div class="cover-actions"><button class="primary" type="button" id="start">Começar meu perfil <span aria-hidden="true">↗</span></button><span>Responda só o que quiser.</span></div>
+  <div class="cover-actions"><button class="primary" type="button" id="start">Começar meu perfil <span aria-hidden="true">↗</span></button></div>
   </div>
   </section>`;
   app.querySelector('#start').onclick=()=>{step=0;render()};titleFocus();return;
  }
  if(step>data.length){
-  app.innerHTML=`<section class="end"><p class="eyebrow">Meu Perfil E.Lab</p><h1 tabindex="-1">Obrigada pelo seu tempo.</h1><p>Seu perfil foi recebido.</p><button type="button" class="primary" id="restart">Voltar à capa</button></section>`;
+  app.innerHTML=`<section class="end"><p class="eyebrow">Meu Perfil E.Lab</p><h1 tabindex="-1">Obrigada pelo seu tempo.</h1><p>Seu perfil foi salvo.</p><button type="button" class="primary" id="restart">Voltar à capa</button></section>`;
   clear();app.querySelector('#restart').onclick=()=>{step=-1;render()};titleFocus();return;
  }
  if(step===data.length){renderConsent();return}
  const q=data[step]; const record=answers[q.id]??{choice:null,text:''};
- app.innerHTML=`<section class="question">${progress()}<h1 tabindex="-1">${q.title}</h1>${q.subtitle?`<p class="hint">${q.subtitle}</p>`:''}
+ app.innerHTML=`<section class="question">${progress()}<h1 tabindex="-1">${q.title}</h1>
  <form><div class="choices" role="group" aria-label="Sugestões"></div><label class="field" for="answer">Sua resposta</label><div id="answer-wrap"></div>
 
  ${nav()}</form></section>`;

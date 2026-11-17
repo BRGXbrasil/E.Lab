@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#fbf8f3">
+<title>Meu Perfil E.Lab</title>
+<style>
+:root{--ivory:#fbf8f3;--ink:#2b211b;--muted:#6e5b4e;--line:#ddd1c5;--dust:#eadbd0;--brown:#3d2e25;--warm:#a0644b;--serif:Georgia,'Times New Roman',serif;--sans:system-ui,-apple-system,'Segoe UI',sans-serif}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ivory);color:var(--ink);font:15px/1.55 var(--sans)}
+button,input,textarea{font:inherit}button{cursor:pointer}button:disabled{cursor:not-allowed;opacity:.48}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--warm);outline-offset:4px}
+[hidden]{display:none!important}
+.mast{border-bottom:1px solid var(--line);padding:10px max(24px,calc((100% - 1160px)/2));min-height:75px;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.brand{display:flex;align-items:center;gap:10px;font:26px/1 var(--serif);letter-spacing:-.045em}
+.brand i{color:var(--warm);font-style:normal}.brand small,.eyebrow,.index,.note,.caption{font:600 10px/1.5 var(--sans);letter-spacing:.17em;text-transform:uppercase}
+.brand small{letter-spacing:.13em;margin-top:6px}.note,.caption,.eyebrow,.index{color:var(--muted)}
+.cover{max-width:1160px;margin:auto;min-height:calc(100svh - 75px);padding:clamp(38px,7vw,105px) 32px;display:grid;grid-template-columns:1fr;max-width:820px;align-items:center;gap:clamp(30px,6vw,82px)}
+.eyebrow{display:flex;align-items:center;gap:13px;margin:0 0 20px}.eyebrow:before{content:'';width:26px;border-top:1px solid var(--warm)}
+.cover h1,.question h1,.end h1{font:400 clamp(62px,8vw,112px)/.91 var(--serif);letter-spacing:-.072em;margin:0 0 22px}
+.cover h1 em{display:block;color:#85533e;font-weight:400}
+.lead{max-width:370px;color:var(--muted);font-size:16px;margin:0 0 26px}
+.primary{border:1px solid var(--brown);border-radius:99px;background:var(--brown);color:var(--ivory);min-height:46px;padding:11px 22px;font-weight:650;display:inline-flex;align-items:center;gap:20px;justify-content:center}
+.primary:hover:not(:disabled){background:#554033}.cover-actions{display:flex;align-items:center;gap:15px;flex-wrap:wrap}
+.cover-actions span:not([aria-hidden]){font-size:12px;color:var(--muted)}
+.preview-note{font-size:12px;color:var(--muted);margin:20px 0 0}
+.question,.end{max-width:820px;margin:auto;padding:clamp(27px,5vw,65px) clamp(20px,6vw,58px) 50px}
+.progress-row{display:flex;align-items:center;gap:16px;margin:0 0 clamp(30px,5vw,60px)}
+progress{width:100%;height:3px;border:0;background:var(--dust);color:var(--warm);appearance:none}progress::-webkit-progress-bar{background:var(--dust)}progress::-webkit-progress-value{background:var(--warm)}progress::-moz-progress-bar{background:var(--warm)}
+.index{white-space:nowrap}.question h1,.end h1{font-size:clamp(38px,6vw,68px);letter-spacing:-.057em;line-height:.99;margin-bottom:12px}
+.hint{color:var(--muted);margin:0 0 18px}
+.choices{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+.suggestion{min-height:43px;border-radius:30px;border:1px solid #c8b5a7;background:#fffaf5;color:var(--brown);padding:9px 15px;font-size:13px;text-align:left}
+.suggestion:hover,.suggestion[aria-pressed=true]{background:var(--brown);border-color:var(--brown);color:white}
+.field{display:block;margin-top:12px;color:var(--muted);font-size:12px}
+.field{display:block;margin:20px 0 9px;font-size:12px;color:var(--muted)}#answer{display:block;width:100%;padding:20px 22px;min-height:72px;border:1px solid #d7c5b6;background:#fffdf9;color:var(--ink);border-radius:18px;font-size:17px;line-height:1.6;box-shadow:0 6px 22px #4f2f1e06;transition:border-color .2s,box-shadow .2s}#answer:focus{border-color:var(--warm);box-shadow:0 0 0 3px #a0644b12}textarea#answer{min-height:132px;resize:vertical}
+.field textarea{resize:vertical;min-height:44px}.field input::placeholder,.field textarea::placeholder{color:#766559}
+.nav{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:26px}
+.nav-end{display:flex;gap:10px;align-items:center}.linkbtn{border:0;background:transparent;color:var(--brown);min-height:44px;padding:6px 8px;text-decoration:underline;text-underline-offset:4px}
+.consent{border:1px solid var(--line);padding:12px 16px;margin:0 0 12px}.consent legend{font-weight:650}.consent label,.check{display:flex;gap:10px;align-items:flex-start;padding:9px 0}.consent input,.check input{accent-color:var(--brown);width:18px;height:18px;flex:none;margin:2px 0}
+.end{padding-top:clamp(55px,10vw,110px)}.end p{max-width:450px;color:var(--muted)}
+@media(max-width:720px){.mast{min-height:60px;padding:10px 20px}.mast .note{font-size:9px;letter-spacing:.10em}.cover{min-height:auto;padding:35px 20px 24px;gap:26px;grid-template-columns:1fr}.cover h1{font-size:clamp(55px,13vw,78px)}}.skipbtn{min-height:46px;padding:10px 20px;background:var(--ivory);border:1px solid #b89a84;border-radius:99px;color:var(--brown);font-weight:650}.skipbtn:hover{background:var(--dust)}#save-error{padding:14px;border:1px solid #a0644b;border-radius:12px;color:#763b25;background:#fff6ee}@media(max-width:420px){.nav{flex-wrap:wrap;gap:12px}.nav-end{margin-left:auto}.nav-end .primary{padding-inline:16px}.skipbtn{padding-inline:16px}}
+</style>
+</head>
+<body>
+<header class="mast"><div class="brand" aria-label="E.Lab Boutique"><span>e.lab<i>.</i></span><small>boutique</small></div><span class="note">Experiência de cuidado</span></header>
+<main id="app"></main>
+<script type="application/json" id="questions">
+[
+  {
+    "id": "name",
+    "title": "Como prefere ser chamada?",
+    "type": "text",
+    "placeholder": "Escreva seu nome ou apelido",
+    "options": []
+  },
+  {
+    "id": "whatsapp",
+    "title": "WhatsApp",
+    "type": "text",
+    "placeholder": "(00) 00000-0000",
+    "options": [
+      "É o mesmo do agendamento",
+      "Prefiro não informar"
+    ]
+  },
+  {
+    "id": "birthday",
+    "title": "Data de aniversário para seu mimo",
+    "type": "text",
+    "placeholder": "DD/MM",
+    "options": [
+      "Informo em outra visita",
+      "Prefiro não informar"
+    ]
+  },
+  {
+    "id": "discovery",
+    "title": "Como conheceu a e.lab?",
+    "options": [
+      "indicação de amiga",
+      "Instagram",
+      "passei na porta",
+      "Google",
+      "já sou cliente"
+    ],
+    "placeholder": "Conte como nos conheceu"
+  },
+  {
+    "id": "ritual",
+    "title": "Qual bebida te acompanha?",
+    "options": [
+      "cappuccino",
+      "cappuccino de avelã",
+      "café expresso",
+      "café coado",
+      "água com gás",
+      "água sem gás",
+      "chá",
+      "espumante"
+    ],
+    "placeholder": "Escreva outra bebida"
+  },
+  {
+    "id": "service",
+    "title": "Como gosta de ser atendida?",
+    "options": [
+      "adoro conversar",
+      "prefiro silêncio para relaxar",
+      "equilíbrio entre os dois",
+      "gosto de dicas durante"
+    ],
+    "placeholder": "Conte como prefere ser atendida"
+  },
+  {
+    "id": "goal",
+    "title": "O que você busca hoje?",
+    "options": [
+      "iluminar",
+      "praticidade",
+      "sofisticação",
+      "mudança leve",
+      "manutenção",
+      "corte com movimento",
+      "tratamento profundo"
+    ],
+    "placeholder": "Conte o que você busca"
+  },
+  {
+    "id": "hair",
+    "title": "O que mais ama no seu cabelo?",
+    "subtitle": "para realçarmos ainda mais",
+    "options": [
+      "brilho",
+      "volume",
+      "cor",
+      "textura natural",
+      "comprimento",
+      "definição",
+      "praticidade"
+    ],
+    "placeholder": "Escreva o que você mais gosta"
+  },
+  {
+    "id": "routine",
+    "title": "Como é sua rotina real hoje?",
+    "subtitle": "lavagem, calor e tempo",
+    "options": [
+      "5 min por dia · lavo todo dia",
+      "15 min com secador sempre",
+      "lavo 2x na semana · evito calor",
+      "só no salão · zero tempo",
+      "rotina completa com protetor térmico",
+      "começando agora · minimalista"
+    ],
+    "placeholder": "Conte um pouco da sua rotina"
+  },
+  {
+    "id": "care",
+    "title": "Algo importante para cuidarmos com atenção?",
+    "subtitle": "histórico e sensibilidades",
+    "options": [
+      "coloração nos últimos meses",
+      "mechas ou descoloração",
+      "progressiva botox ou selagem",
+      "couro sensível ou com oleosidade",
+      "alergia a tintura ou perfume",
+      "gestante ou amamentando",
+      "nenhum ponto de atenção"
+    ],
+    "placeholder": "Inclua só o que for útil para o atendimento"
+  },
+  {
+    "id": "change",
+    "title": "O que gostaria de realçar ou mudar?",
+    "options": [
+      "menos frizz",
+      "mais brilho",
+      "mais definição",
+      "crescimento",
+      "menos volume",
+      "mais praticidade",
+      "cor mais viva"
+    ],
+    "placeholder": "Conte o que gostaria de mudar"
+  },
+  {
+    "id": "products",
+    "title": "Produtos que ama ou quer conhecer",
+    "options": [
+      "shampoo sem sulfato",
+      "máscara de nutrição",
+      "leave in",
+      "óleo finalizador",
+      "protetor térmico",
+      "aberto a indicação"
+    ],
+    "placeholder": "Escreva o nome ou o tipo de produto"
+  },
+  {
+    "id": "inspiration",
+    "title": "Inspiração / referência do dia",
+    "options": [
+      "natural iluminado",
+      "loiro sofisticado",
+      "morena iluminada",
+      "ruivo",
+      "corte curto",
+      "cabelo longo",
+      "referência do Instagram"
+    ],
+    "placeholder": "Cole um link ou descreva sua referência"
+  },
+  {
+    "id": "car",
+    "title": "O valet está te esperando",
+    "options": [],
+    "placeholder": "Se quiser, informe o carro e a placa"
+  }
+]
+</script>
+<script>
+'use strict';
+const data=JSON.parse(document.getElementById('questions').textContent);
+const total=data.length+1;
+const app=document.getElementById('app');
+let step=-1, answers={}, contact=null, marketing=false, image=false, privacy=false, saving=false;
+let profileId=crypto.randomUUID(), pendingSubmission=null;
+const API_URL='https://yrmsnykdxxqomkvxqnki.supabase.co/functions/v1/elab-profile-submit';
+const PUBLIC_KEY='sb_publishable_nviD65C5Y-mgrj04dwEheQ_x17AjVfL';
+const PRIVACY_VERSION='2026-11-16';
+const titleFocus=()=>{const title=app.querySelector('h1');title.focus({preventScroll:true});window.scrollTo(0,0)};
+function clear(){answers={};contact=null;marketing=false;image=false;privacy=false;pendingSubmission=null;profileId=crypto.randomUUID()}
+function nav(next='Continuar',disabled=false){return `<div class="nav"><button type="button" class="linkbtn" id="back">Voltar</button><div class="nav-end"><button type="button" class="skipbtn" id="skip">Pular</button><button type="submit" class="primary" id="next" ${disabled?'disabled':''}>${next}</button></div></div>`}
+function progress(){return `<div class="progress-row"><progress aria-label="Progresso do Meu Perfil" value="${step+1}" max="${total}"></progress><span id="count" class="index">${String(step+1).padStart(2,'0')} / ${total}</span></div>`}
+function render(){
+ if(step===-1){
+  app.innerHTML=`<section class="cover"><div>
+  <h1 tabindex="-1">Meu perfil <em>E.Lab</em></h1>
+  
+  <div class="cover-actions"><button class="primary" type="button" id="start">Começar meu perfil <span aria-hidden="true">↗</span></button></div>
+  </div>
+  </section>`;
+  app.querySelector('#start').onclick=()=>{step=0;render()};titleFocus();return;
+ }
+ if(step>data.length){
+  app.innerHTML=`<section class="end"><p class="eyebrow">Meu Perfil E.Lab</p><h1 tabindex="-1">Obrigada pelo seu tempo.</h1><p>Seu perfil foi salvo.</p><button type="button" class="primary" id="restart">Voltar à capa</button></section>`;
+  clear();app.querySelector('#restart').onclick=()=>{step=-1;render()};titleFocus();return;
+ }
+ if(step===data.length){renderConsent();return}
+ const q=data[step]; const record=answers[q.id]??{choice:null,text:''};
+ app.innerHTML=`<section class="question">${progress()}<h1 tabindex="-1">${q.title}</h1>
+ <form><div class="choices" role="group" aria-label="Sugestões"></div><label class="field" for="answer">Sua resposta</label><div id="answer-wrap"></div>
+
+ ${nav()}</form></section>`;
+ const options=app.querySelector('.choices');
+ const field=document.createElement(['name','whatsapp','birthday'].includes(q.id)?'input':'textarea');
+ field.id='answer';field.placeholder=q.placeholder;field.value=record.text;field.maxLength=800;
+ if(field.tagName==='TEXTAREA')field.rows=3;
+ if(q.id==='whatsapp'){field.inputMode='tel';field.autocomplete='off'}
+ if(q.id==='birthday')field.inputMode='numeric';
+ app.querySelector('#answer-wrap').append(field);
+ const setPressed=()=>Array.from(options.children).forEach((el,i)=>el.setAttribute('aria-pressed',String(i===record.choice)));
+ q.options.forEach((label,i)=>{
+  const chip=document.createElement('button');chip.type='button';chip.className='suggestion';chip.textContent=label;
+  chip.onclick=()=>{record.choice=record.choice===i?null:i;record.text='';field.value='';answers[q.id]=record;setPressed()};
+  options.append(chip);
+ });
+ setPressed();
+ field.oninput=()=>{record.text=field.value;record.choice=null;answers[q.id]=record;setPressed()};
+ app.querySelector('form').onsubmit=e=>{e.preventDefault();answers[q.id]=record;step++;render()};
+ app.querySelector('#skip').onclick=()=>{delete answers[q.id];step++;render()};
+ app.querySelector('#back').onclick=()=>{step--;render()};
+ titleFocus();
+}
+function renderConsent(){
+ app.innerHTML=`<section class="question">${progress()}<p class="eyebrow">Suas escolhas</p><h1 tabindex="-1">Só mais um cuidado.</h1><p class="hint">Escolha se você autoriza receber mensagens pelo WhatsApp. Novidades e uso de imagem são escolhas separadas.</p>
+ <form><fieldset class="consent"><legend>Mensagens sobre seus agendamentos e cuidados</legend>
+ <label><input type="radio" name="contact" value="yes" ${contact==='yes'?'checked':''}> <span>Sim, autorizo essas mensagens no meu WhatsApp.</span></label>
+ <label><input type="radio" name="contact" value="no" ${contact==='no'?'checked':''}> <span>Não, prefiro não receber essas mensagens.</span></label></fieldset>
+ <label class="check"><input id="marketing" type="checkbox" ${marketing?'checked':''}><span>Quero receber novidades e convites da E.Lab. <small>(Opcional)</small></span></label>
+ <label class="check"><input id="image" type="checkbox" ${image?'checked':''}><span>Autorizo o uso da minha imagem nas comunicações da E.Lab. <small>(Opcional)</small></span></label>
+ <label class="check"><input id="privacy" type="checkbox" ${privacy?'checked':''}><span>Autorizo o armazenamento das minhas respostas, incluindo as informações de saúde que eu decidir informar, para personalizar meu atendimento. Somente a equipe autorizada terá acesso. Posso pedir à recepção a correção ou exclusão do meu perfil.</span></label>
+ <p class="preview-note" id="consent-note" role="status">As respostas serão enviadas ao concluir seu perfil.</p><p id="save-error" role="alert" hidden></p>${nav('Concluir meu perfil',contact===null||!privacy)}</form></section>`;
+ app.querySelector('form').onchange=e=>{if(e.target.name==='contact')contact=e.target.value;if(e.target.id==='marketing')marketing=e.target.checked;if(e.target.id==='image')image=e.target.checked;if(e.target.id==='privacy')privacy=e.target.checked;app.querySelector('#next').disabled=contact===null||!privacy};
+ app.querySelector('#back').onclick=()=>{step--;render()};
+ app.querySelector('#skip').onclick=()=>{marketing=false;image=false;app.querySelector('#marketing').checked=false;app.querySelector('#image').checked=false;app.querySelector('#consent-note').textContent=contact===null?'As opções extras foram puladas. Escolha Sim ou Não para mensagens no WhatsApp.':'As opções extras foram puladas. Você pode concluir seu perfil.'};
+ app.querySelector('form').onsubmit=async e=>{e.preventDefault();if(contact===null||!privacy||saving)return;await saveProfile()};
+ titleFocus();
+}
+async function saveProfile(){
+ saving=true;
+ const buttons=app.querySelectorAll('button,input');buttons.forEach(button=>button.disabled=true);
+ const error=app.querySelector('#save-error');error.hidden=true;app.querySelector('#next').textContent='Salvando…';
+ const payload=pendingSubmission??{id:profileId,answers:Object.fromEntries(data.map(q=>{const a=answers[q.id];return [q.id,a?.text?.trim()||(a?.choice!=null?q.options[a.choice]:'')]})),consentContact:contact==='yes',consentMarketing:marketing,consentImage:image,consentPrivacy:privacy,privacyVersion:PRIVACY_VERSION};
+ pendingSubmission=payload;
+ let rejected=false;
+ try{
+  const response=await fetch(API_URL,{method:'POST',headers:{'Content-Type':'application/json',apikey:PUBLIC_KEY},body:JSON.stringify(payload),signal:AbortSignal.timeout(20000)});
+  rejected=[400,401,403,409,413,415,429].includes(response.status);
+  const result=await response.json();
+  if(!response.ok||result.saved!==true||result.id!==profileId)throw Error('save_failed');
+  step++;render();
+ }catch{
+  error.textContent='Não foi possível confirmar o envio. Suas respostas continuam aqui. Tente concluir novamente.';error.hidden=false;
+  if(rejected){pendingSubmission=null;buttons.forEach(button=>button.disabled=false);}else{app.querySelector('#next').disabled=false;}
+  app.querySelector('#next').textContent='Concluir meu perfil';
+ }finally{saving=false;}
+}
+render();
+</script>
+</body>
+</html>

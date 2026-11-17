@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+const read=p=>fs.readFileSync(p,'utf8');
+const core=read('src/core.js');
+const strip=s=>s.replace(/^import .*?;\n/gm,'').replace(/export /g,'');
+const scoped=p=>{const s=read(p),names=[...s.matchAll(/export (?:async )?(?:function|const) (\w+)/g)].map(m=>m[1]);return 'const {'+names.join(',')+'}=(()=>{'+strip(s)+'\nreturn {'+names.join(',')+'};})();'};
+const features=['src/profile-bridge.js','src/temporary-view.js','src/procedure-ai.js','src/presence.js','src/imports.js','src/replenishment.js','src/stock-order.js','src/stock-reports.js','src/avec.js','src/stock-state.js','src/features.js','src/import-api.js','src/avec-maintenance.js','src/stock-reports-maintenance.js'].map(scoped).join('\n');
+const client=core.replace(/export /g,'')+'\n'+scoped('src/imports.js')+'\n'+scoped('src/stock-reports.js')+'\n'+scoped('src/avec.js')+'\n'+scoped('src/spreadsheet.js')+'\n'+read('src/client.js').replace('// __FEATURE_CLIENT__',read('src/feature-client.js')+'\n'+read('src/avec-client.js'));
+let html=read('src/page.html').replace('__CSS__',read('src/style.css')).replace('__JS__',client.replace(/<\/script/gi,'<\\/script'));
+fs.writeFileSync('src/ui.js','export const HTML='+JSON.stringify(html)+';\n');
+const brandFonts = Object.fromEntries(fs.readdirSync('vendor/brand-fonts').filter(name=>name.endsWith('.woff2')).map(name=>['/assets/brand/'+name,fs.readFileSync('vendor/brand-fonts/'+name).toString('base64')]));
+let worker=read('src/worker.js').replace(/^import .*?;\n/gm,'');
+const catalog=JSON.parse(read('src/catalog.json')),questions=JSON.parse(read('src/profile-questions.json'));
+worker='const PROFILE_HTML='+JSON.stringify(read('public/meu-perfil/index.html'))+';\nconst brandFonts='+JSON.stringify(brandFonts)+';\nconst stockOrderReference='+read('src/stock-order-reference.json')+';\nconst stockReportsManifest='+read('src/stock-reports-manifest.json')+';\nconst avecManifest='+read('src/avec-manifest.json')+';\nconst FFLATE_ASSET='+JSON.stringify(read('vendor/fflate.min.js'))+';\nconst recovered='+read('src/recovered.json')+';\nconst catalog='+JSON.stringify(catalog)+';\nconst questions='+JSON.stringify(questions)+';\n'+core.replace(/export /g,'')+'\n'+features+'\nconst HTML='+JSON.stringify(html)+';\n'+worker;
+fs.mkdirSync('dist/server',{recursive:true});fs.mkdirSync('dist/.openai',{recursive:true});
+fs.writeFileSync('dist/server/index.js',worker);fs.copyFileSync('.openai/hosting.json','dist/.openai/hosting.json');
+if(fs.existsSync('drizzle'))fs.cpSync('drizzle','dist/drizzle',{recursive:true});
+console.log('Built Worker:',Buffer.byteLength(worker),'bytes.');

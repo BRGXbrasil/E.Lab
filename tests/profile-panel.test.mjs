@@ -65,3 +65,26 @@ test('overlapping logins leave only the current polling interval',async()=>{
  assert.equal(count,1);
  }finally{await browser.close();}
 });
+test('realtime refreshes profiles and old channel callbacks cannot cross sessions',async()=>{
+ const browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH,headless:true,args:['--no-sandbox']});
+ try{
+  const page=await browser.newPage();await page.setContent('<section id="profiles"></section>');
+  const source=await readFile('meu-perfil/painel.js','utf8');await page.addScriptTag({content:source.replace('export function mountProfilePanel','function mountProfilePanel')});
+  await page.evaluate(async()=>{
+   window.rows=[];window.channels=[];window.removed=[];window.queryCount=0;
+   const client={from:()=>{queryCount++;const q={select:()=>q,order:()=>q,range:()=>q,then:r=>r({data:rows})};return q},auth:{onAuthStateChange(){}},channel:()=>{const ch={on:(type,filter,cb)=>{ch.callback=cb;return ch},subscribe:cb=>{ch.status=cb;return ch}};channels.push(ch);return ch},removeChannel:ch=>{removed.push(ch);return Promise.resolve('ok')}};
+   window.panel=mountProfilePanel({client,container:document.querySelector('#profiles')});await panel.setRole('reception');
+  });
+  assert.equal(await page.evaluate(()=>channels.length),1);
+  await page.evaluate(()=>{rows=[{id:'new',created_at:new Date().toISOString(),submission:{answers:{name:'Nova cliente fictícia'}}}];channels[0].callback({eventType:'INSERT'});});
+  await page.locator('summary').filter({hasText:'Nova cliente fictícia'}).waitFor();
+  await page.evaluate(async()=>{await panel.setRole('manager');window.countBefore=queryCount;channels[0].callback({eventType:'INSERT'});});
+  assert.equal(await page.evaluate(()=>queryCount),await page.evaluate(()=>countBefore));
+  assert.equal(await page.evaluate(()=>removed.length),1);
+  await page.evaluate(()=>panel.clear());
+  assert.equal(await page.evaluate(()=>removed.length),2);
+ }finally{await browser.close()}
+});
+test('GitHub and Sites publish the same customer form',async()=>{
+ assert.equal(await readFile('sites/public/meu-perfil/index.html','utf8'),await readFile('meu-perfil/index.html','utf8'));
+});

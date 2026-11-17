@@ -1,12 +1,12 @@
 const allowedRoles=new Set(['owner','director','admin','manager','reception']);
 const labels={name:'Nome',whatsapp:'WhatsApp',birthday:'Aniversário',discovery:'Como conheceu',ritual:'Bebida',service:'Atendimento',goal:'O que busca hoje',hair:'O que ama no cabelo',routine:'Rotina',care:'Cuidados e sensibilidades',change:'O que quer realçar ou mudar',products:'Produtos',inspiration:'Inspiração / referência do dia',car:'Carro e placa'};
 export function mountProfilePanel({client,container}){
- let timer=null,mount=0,generation=0,currentPage=0,query='',hasNext=false,role=null,loading=false;
+ let channel=null,timer=null,mount=0,generation=0,currentPage=0,query='',hasNext=false,role=null,loading=false;
  const node=(tag,text)=>{const el=document.createElement(tag);if(text!=null)el.textContent=text;return el;};
- function clear(){mount++;generation++;clearInterval(timer);timer=null;role=null;currentPage=0;query='';loading=false;container.replaceChildren();container.hidden=true;}
+ function clear(){mount++;generation++;if(channel){void client.removeChannel(channel);channel=null;}clearInterval(timer);timer=null;role=null;currentPage=0;query='';loading=false;container.replaceChildren();container.hidden=true;}
  async function setRole(nextRole){
   clear();const activeMount=mount;if(!allowedRoles.has(nextRole))return;role=nextRole;container.hidden=false;
-  const heading=node('h2','Meu Perfil');
+  const heading=node('h2','Meu Perfil · Recepção');
   const link=node('a','Abrir formulário para a cliente');link.href='https://brgxbrasil.github.io/Meu-perfil/';link.target='_blank';link.rel='noopener noreferrer';link.className='dashboard-link';
   const input=node('input');input.type='search';input.placeholder='Buscar pelo nome';input.setAttribute('aria-label','Buscar perfis pelo nome');input.style.width='100%';
   const status=node('p');status.setAttribute('role','status');
@@ -46,6 +46,10 @@ export function mountProfilePanel({client,container}){
    }catch{
     if(version===generation){list.replaceChildren();status.textContent='Não foi possível carregar os perfis. Confira sua sessão e tente atualizar.';}
    }finally{if(version===generation)loading=false;}
+  }
+  if(client.channel){
+   const ownMount=activeMount;
+   channel=client.channel('elab-profiles-'+ownMount).on('postgres_changes',{event:'*',schema:'public',table:'elab_client_profiles'},()=>{if(ownMount===mount&&role)void load();}).subscribe(state=>{if(ownMount===mount&&role&&state==='SUBSCRIBED')void load();});
   }
   await load();
   if(activeMount!==mount)return;

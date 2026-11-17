@@ -1,0 +1,265 @@
+{
+  "dataset": "stock-reports-20261110",
+  "files": [
+    {
+      "source": "stock-position",
+      "id": "import-file/stock-position/544ea992687d773a064ac59af4ac266907934e092645debae63190e41be27e56",
+      "hash": "544ea992687d773a064ac59af4ac266907934e092645debae63190e41be27e56",
+      "name": "Avec Sal\u00e3oVIP - Sistema de Administra\u00e7\u00e3o (3).xlsx",
+      "size": 265131,
+      "rows": 460
+    },
+    {
+      "source": "stock-products",
+      "id": "import-file/stock-products/ff4181ae098023f3784015104876c8e5a3f3ad7482250e50c37e6a01a46e881f",
+      "hash": "ff4181ae098023f3784015104876c8e5a3f3ad7482250e50c37e6a01a46e881f",
+      "name": "Avec Sal\u00e3oVIP - Sistema de Administra\u00e7\u00e3o (4).xlsx",
+      "size": 179389,
+      "rows": 460
+    }
+  ],
+  "batches": [
+    {
+      "index": 0,
+      "hash": "80b0899db6217a19f842d9d168e5e2040aafce70af0cc5910f20f1c08603deff",
+      "count": 20
+    },
+    {
+      "index": 1,
+      "hash": "8b4f219b1435ceecc43b861c009b81538a26163e5e34f68c5cd7adb4da1cb2a9",
+      "count": 20
+    },
+    {
+      "index": 2,
+      "hash": "c5a94cca85fa36588a0f732c20f04c6fbaaf3b00b6fbccc4a14ecc169c19fdf2",
+      "count": 20
+    },
+    {
+      "index": 3,
+      "hash": "0daf56bdfc04d41f91d6aa24cd83bccb150c59c1ea85355f748b206ceeb32dd5",
+      "count": 20
+    },
+    {
+      "index": 4,
+      "hash": "7d1b72aeb78ca80db925f7ff7a44dc05a32b859de950d668abaa9a3cf4549a5b",
+      "count": 20
+    },
+    {
+      "index": 5,
+      "hash": "d96c8552be98df6bd10b1dbfbe34250a31359f4d4147bcd7c77eebfe09daa7a6",
+      "count": 20
+    },
+    {
+      "index": 6,
+      "hash": "13b116a465138a40cc816eca5a910bdeb1944538183e25bbab0627d835d0ab29",
+      "count": 20
+    },
+    {
+      "index": 7,
+      "hash": "44f4b5322b8624028c0d36ae59c74948d1ae92c73117060bf3aabbfe4ba46b7a",
+      "count": 20
+    },
+    {
+      "index": 8,
+      "hash": "0609fb6f91980afac01af46a6750ab7e40560219032eeb82eb0de05911087404",
+      "count": 20
+    },
+    {
+      "index": 9,
+      "hash": "d9a4c05a82314ffd303a55ec4a1a0e476d87e2b49015f03afecf31cb6ca296ea",
+      "count": 20
+    },
+    {
+      "index": 10,
+      "hash": "996b9222889dc11bba27105df6a9579a069872c87bccdf7463e3fe02129a0545",
+      "count": 20
+    },
+    {
+      "index": 11,
+      "hash": "4ead74c01b0dc67ad59424dda22dd8fb82c4adde770815dcd77ee9947248f08e",
+      "count": 20
+    },
+    {
+      "index": 12,
+      "hash": "3bd5c57f8ec37c2eea2e72a7c60bc7637ead8a72b07b6d8fecbb7d9af422704d",
+      "count": 20
+    },
+    {
+      "index": 13,
+      "hash": "87f60a7351ea6a849537449f6ecb03abf813c1347d469e3966ee393328277ce6",
+      "count": 20
+    },
+    {
+      "index": 14,
+      "hash": "f7472bbd4bea0c2aacf3fbd1af6a19f0ab5f4ee1d98717a0d2a6c9beea9f29b2",
+      "count": 20
+    },
+    {
+      "index": 15,
+      "hash": "2f6c234bc06366c96529d95349e0608f3650b4519d11f7f234c576cb59133b6c",
+      "count": 20
+    },
+    {
+      "index": 16,
+      "hash": "83ada0d0b60caf0f0a01e36d772dce79f32c39da9a2197934973d891d4ca7a27",
+      "count": 20
+    },
+    {
+      "index": 17,
+      "hash": "835cbea5b5ab7962ef32dff0698ad77e9340ce264368133434463db52342e6ac",
+      "count": 20
+    },
+    {
+      "index": 18,
+      "hash": "047f0b9a0c5ff9560709b7e3d7b4829f397e63577f1bc66bf09c6c9e5fea1ea6",
+      "count": 20
+    },
+    {
+      "index": 19,
+      "hash": "5b87aba8f373cac7327c9fee78fb3b3db9252dfb7ae2d79ba0f9c98638b010b6",
+      "count": 20
+    },
+    {
+      "index": 20,
+      "hash": "07f6588d5756fb518ec71a3bf6331e4dac4881eaba1e499c9561729b08b8acf6",
+      "count": 20
+    },
+    {
+      "index": 21,
+      "hash": "a14ff4f3884915e74b54827666415609adcfc5d35abdb6b8bcac1d12ef97719d",
+      "count": 20
+    },
+    {
+      "index": 22,
+      "hash": "42163f3dfe86d3aba79180613d2af5bf59ee5b1b270953ba78a521eed97de01e",
+      "count": 20
+    },
+    {
+      "index": 23,
+      "hash": "9343ac28f1dd00e5770ebbea75a969dd333502521d699a26917690f801d09677",
+      "count": 20
+    },
+    {
+      "index": 24,
+      "hash": "5bbe83dcd8cb4461d9b78d6136cd23c292bb277732b9a39474cab449caf3019e",
+      "count": 20
+    },
+    {
+      "index": 25,
+      "hash": "a2b52934bdf0c6931a2ae8629b343067bd12b50ed543fbb1180a52c9d44039c3",
+      "count": 20
+    },
+    {
+      "index": 26,
+      "hash": "53d97097620ace47ef7dcc55cca02852c8f819e1b4c99a82e4cc107844011f21",
+      "count": 20
+    },
+    {
+      "index": 27,
+      "hash": "e601e165fef92fb6534b6da8bd4919aa3fcf1a6063f45c5521df90fd4452536d",
+      "count": 20
+    },
+    {
+      "index": 28,
+      "hash": "0dc710430a71661986407df9ca9c0f0a9b93d2d718a739b49447315917bebd50",
+      "count": 20
+    },
+    {
+      "index": 29,
+      "hash": "017a9f9d51e016eb533d455cb7a48323323b37642211ad43db7e059cb420976d",
+      "count": 20
+    },
+    {
+      "index": 30,
+      "hash": "9a3bdd5ac104f1d7f5ffa12f97a7d9f397afcd1b53851bbeb1302f97f572b1dc",
+      "count": 20
+    },
+    {
+      "index": 31,
+      "hash": "af27f77d730dde32c7dddf2bbf5e0cbe463073ae203af3fb255bfb726153401b",
+      "count": 20
+    },
+    {
+      "index": 32,
+      "hash": "e5df2f821b1a52742b886bbb253129db8cbc271cee4532b39887c8c097d40b4a",
+      "count": 20
+    },
+    {
+      "index": 33,
+      "hash": "b0b21a3c150612c7644f9ad1f0bd41116f88ed9384fc5b16611d884c623b16be",
+      "count": 20
+    },
+    {
+      "index": 34,
+      "hash": "a6645046eeaa21aaf6215fd228b55d531bbc1325b74a0828fb9343b4ab565ade",
+      "count": 20
+    },
+    {
+      "index": 35,
+      "hash": "4413d2636cdb5c2fe2ac59814e43c67cad1e89e78b014a58759bb922ce78865f",
+      "count": 20
+    },
+    {
+      "index": 36,
+      "hash": "3f0fa8725755cbcb6f93b718594749c3f6c93e20086bf7cf4b212318308664a4",
+      "count": 20
+    },
+    {
+      "index": 37,
+      "hash": "3cbde7de4bd6cfbe9fbf5fcd5aaf4f7d4534d76669e5bbea9d3117835934e670",
+      "count": 20
+    },
+    {
+      "index": 38,
+      "hash": "0944b5629172ef2d6e18be17279c909a0c4206254cc5ba52c040ba48c5f2864a",
+      "count": 20
+    },
+    {
+      "index": 39,
+      "hash": "26687097b14cd7660eb6d3ab5afe3069a6af7493c43c8e3f7dfe8176b5f38ad3",
+      "count": 20
+    },
+    {
+      "index": 40,
+      "hash": "fc5ad1cd1b8dbf226d749ab1ce8054ed14a0c681b21f0a5a0f1168fc801414d0",
+      "count": 20
+    },
+    {
+      "index": 41,
+      "hash": "cac4bfef53c4a9d742c5d98ea98c5a2eec16533bdaa929e1519c8bb70a63a9f3",
+      "count": 20
+    },
+    {
+      "index": 42,
+      "hash": "4a3822df2b101570491c3eecc66aa6c57ac83941acd3d4444b0be9df998c679c",
+      "count": 20
+    },
+    {
+      "index": 43,
+      "hash": "4e766630ef800115f94e82c4da59e4d7546751b95f713e21069f2860e5987fe3",
+      "count": 20
+    },
+    {
+      "index": 44,
+      "hash": "437c95cb792f6bdea7433daecaca6188c3321abe35035df8d2c3bd705c8d858b",
+      "count": 20
+    },
+    {
+      "index": 45,
+      "hash": "5aab17a6215463eb3c3cc1079f1ae77eb477b08748f262009c75a3900a4df632",
+      "count": 20
+    }
+  ],
+  "summary": {
+    "positionRows": 460,
+    "productRows": 460,
+    "currentProducts": 460,
+    "belowOrAtMinimum": 330,
+    "sourceWarningFlags": 330,
+    "quantityMismatches": 0,
+    "negativePositions": 3,
+    "costTotalCents": 5163273,
+    "saleTotalCents": 8150769
+  },
+  "serviceKeyHash": "183f29bc02ec3ed199025df9002e00a26c645c167636ee15239801a091885efa"
+}

@@ -10,7 +10,7 @@ A autorização de armazenamento inclui as informações de saúde que a cliente
 
 ## Integração com o Elab Hub
 
-O Hub lê a mesma tabela pela sessão já autenticada. O módulo `meu-perfil/painel.js` no repositório E.Lab fornece busca, páginas de 25 perfis e atualização a cada 30 segundos enquanto a aba está visível. Os dados renderizados são limpos ao sair. Respostas são renderizadas por `textContent`.
+O Hub lê a mesma tabela pela sessão já autenticada. O módulo `meu-perfil/painel.js` no repositório E.Lab fornece busca, páginas de 25 perfis e atualização por eventos Realtime, com consulta de recuperação a cada 30 segundos enquanto a aba está visível. Os dados renderizados são limpos ao sair. Respostas são renderizadas por `textContent`.
 
 ## Publicação coordenada
 
@@ -28,3 +28,13 @@ Node 24. Execute `npm ci`, `npx playwright install --with-deps chromium` e `npm 
 Testes: navegação e falha seguida de nova tentativa, preservação do envio pendente, validação de payload, consentimentos recusados, acesso do banco, idempotência e limites. No Hub também há testes de paginação, renderização segura e concorrência de sessões.
 
 Em falha de confirmação, o envio exato fica preservado na memória da página, com edição temporariamente bloqueada para evitar que uma tentativa já salva seja reenviada com dados diferentes. Fechar ou recarregar a página descarta essa memória. A cliente pode pedir correção ou exclusão pela recepção; estes pedidos devem ser executados por administração autorizada no banco.
+
+## Hub no Sites
+
+O código da publicação do Sites está em `sites/` neste repositório, preservando o projeto original, seu D1 e R2. O build em `sites/scripts/build.mjs` inclui uma cópia idêntica de `meu-perfil/index.html` publicado no GitHub Pages. O painel do Sites consulta respostas a cada 3 segundos quando Meu Perfil está aberto; falhas são exibidas, sem substituir dados por exemplos. Busca e paginação são compartilhadas com a API.
+
+A rota autenticada `/api/client-profiles` permite apenas gestão/recepção e recusa consulta temporária. Ela assina pedidos de curta validade com uma chave privada guardada como segredo do Sites; `elab-profile-read` verifica a assinatura e só então consulta o Supabase. A chave pública está no código; a privada nunca entra no GitHub.
+
+Produção: tabela e funções implantadas em 17/11/2026. Testes SQL de acesso anônimo, função ativa/inativa, idempotência, conflito e limite passaram com ROLLBACK das fixtures. A publicação e a validação externa estão registradas no relatório de entrega.
+
+O pacote de recuperação antigo continha históricos pessoais. O código público inclui apenas estatísticas desse pacote: os registros já consolidados permanecem no D1, e a cópia anterior fica no histórico privado do Sites. Não há reimportação desses dados nesta entrega.

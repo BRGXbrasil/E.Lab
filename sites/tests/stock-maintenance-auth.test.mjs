@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import worker from '../dist/server/index.js';
+test('consolidação privada está encerrada mesmo que o nome público do lote seja conhecido',async()=>{const r=await worker.fetch(new Request('https://elab.test/internal/stock-reports-20261110?action=status',{method:'POST',headers:{'X-Elab-Stock-Reports':'stock-reports-20261110'},body:'{}'}),{});assert.equal(r.status,410);const data=await r.json();assert.ok(!JSON.stringify(data).includes('costTotalCents'))});

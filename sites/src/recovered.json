@@ -1,0 +1,1 @@
+{"id": "recovery-20261109-r32", "fetchedAt": "2026-11-09T08:04:20.904469+00:00", "sourceUpdatedAt": "2026-10-24T20:28:41.911+00:00", "revision": 32, "stats": {"queueEvents": 27, "legacyRows": 68, "uniqueRosterNames": 9, "futureAppointments": 3, "sourceSnapshots": 3}, "queues": {}, "records": [], "sources": [], "historicalNames": [], "legacyAttendanceRows": []}

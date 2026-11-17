@@ -1,0 +1,13 @@
+{
+  "name": "elab-unificado",
+  "version": "2.4.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@xmldom/xmldom": "^0.9.12"
+  }
+}
