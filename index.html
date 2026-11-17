@@ -13,6 +13,7 @@ small,.muted{color:#6e6760}.task:first-child{border:0}.task strong{display:block
 @media(min-width:720px){body{max-width:1060px}.hub-nav{grid-template-columns:repeat(6,minmax(0,1fr))}}
 .dashboard-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:.6rem;margin:1rem 0}.metric{background:#f7f3ef;padding:1rem;border-radius:10px}.metric b{display:block;font-size:1.5rem}.metric small{display:block}
 table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1px solid #e5ddd5;text-align:left;padding:.6rem;word-break:break-word}.scroll{overflow-x:auto}.dashboard-link{display:inline-block;margin:.5rem 0;color:#443326}
+#profiles[hidden]{display:none}#profiles button{margin-right:8px;margin-top:10px}.profile-records{display:grid;gap:10px}.profile-records details{border:1px solid #ddd5cc;border-radius:12px;padding:16px;overflow-wrap:anywhere}.profile-records summary{cursor:pointer;font-weight:650}.profile-records dt{font-size:12px;color:#6e6760;margin-top:12px}.profile-records dd{margin:3px 0;white-space:pre-wrap}
 </style></head>
 <body><header class="hub-head"><p class="hub-eyebrow">E.Lab Boutique · Central operacional</p><h1>Elab Hub</h1><p class="muted hub-intro">Rotinas, recepção, estoque, limpeza, gestão e acompanhamento da equipe em um só lugar. Entre com seu acesso individual para operar.</p>
 <nav class="hub-nav" aria-label="Módulos do Elab Hub">
@@ -21,7 +22,7 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1
 <a href="https://brgxbrasil.github.io/E.Lab/lista-da-vez.html">Lista da Vez</a>
 <a href="https://brgxbrasil.github.io/E.Lab/treinamentos.html">Treinamentos</a>
 <a href="https://brgxbrasil.github.io/E.Lab/procedimentos.html">Procedimentos</a>
-<a href="https://brgxbrasil.github.io/E.Lab/meu-perfil/">Meu Perfil</a>
+<a href="#profiles" id="profiles-nav">Meu Perfil</a>
 </nav></header>
 <section class="panel" id="signin"><h2>Entrar</h2><form id="login"><input id="username" type="text" required autocomplete="username" autocapitalize="none" placeholder="Usuário" maxlength="80"><input id="password" type="password" required autocomplete="current-password" placeholder="Senha"><button>Entrar</button></form><p><button id="open-register" type="button">Criar primeiro acesso</button> <button id="open-reset" type="button">Esqueci minha senha</button></p></section>
 <section class="panel hidden" id="registration"><h2>Primeiro acesso autorizado</h2>
@@ -66,12 +67,16 @@ table{width:100%;border-collapse:collapse;font-size:.85rem}th,td{border-bottom:1
 <h3>Registros operacionais</h3><div id="activities" class="muted"></div><h3>Histórico recente da Lista da Vez</h3><div class="scroll"><table><thead><tr><th>Data</th><th>Setor</th><th>Evento</th><th>Profissional</th><th>Cliente</th><th>Detalhe</th></tr></thead><tbody id="queue-history"></tbody></table></div>
 <h3>Lista da Vez — dados reais</h3><div id="queue-summary" class="muted">Aguardando atualização</div><a class="dashboard-link" href="https://yrmsnykdxxqomkvxqnki.supabase.co/functions/v1/elab-lista-da-vez" target="_blank" rel="noopener noreferrer">Abrir Lista da Vez (consulta pública)</a>
 <button type="button" id="refresh-dashboard">Atualizar painel</button></section>
+<section class="panel" id="profiles" hidden></section>
 <p><a class="dashboard-link" href="https://yrmsnykdxxqomkvxqnki.supabase.co/functions/v1/elab-lista-da-vez" target="_blank" rel="noopener noreferrer">Consultar Lista da Vez sem login</a></p><p id="state" role="status"></p>
 <script type="module">
+import {mountProfilePanel} from "./meu-perfil/painel.js";
 import {createClient} from "https://esm.sh/@supabase/supabase-js@2.76.1";
 const supabaseUrl="https://yrmsnykdxxqomkvxqnki.supabase.co";
 const publishableKey="sb_publishable_nviD65C5Y-mgrj04dwEheQ_x17AjVfL";
 const client=createClient(supabaseUrl,publishableKey);
+const profilesPanel=mountProfilePanel({client,container:document.getElementById("profiles")});
+document.getElementById("profiles-nav").onclick=async()=>{const {data}=await client.auth.getSession();if(!data.session){document.getElementById("signin").scrollIntoView();status("Entre com seu acesso para consultar os perfis.");}};
 const $=id=>document.getElementById(id);
 const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/Sao_Paulo",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 $("date").value=today();
@@ -248,7 +253,7 @@ async function loadStockReference(role){
 }
 $("stock-search").oninput=drawStock;
 $("stock-filter").onchange=drawStock;
-async function refresh(){const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");$("stock-reference").classList.add("hidden");stockReference=[];if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();if(data?.role){await loadStockReference(data.role);await dashboard(data.role);if(directions.has(data.role))await loadPresence(data.role);}}}
+async function refresh(){profilesPanel.clear();const s=await session();$("signin").classList.toggle("hidden",!!s);$("workspace").classList.toggle("hidden",!s);$("direction").classList.add("hidden");$("stock-reference").classList.add("hidden");stockReference=[];if(s){await load();const {data}=await client.from("elab_ops_members").select("role").eq("user_id",s.user.id).eq("active",true).maybeSingle();await profilesPanel.setRole(data?.role);if(data?.role){await loadStockReference(data.role);await dashboard(data.role);if(directions.has(data.role))await loadPresence(data.role);}}}
 $("open-reset").onclick=()=>{$("reset-panel").classList.remove("hidden");$("reset-username").focus();};
 $("close-reset").onclick=()=>{$("reset-panel").classList.add("hidden");};
 $("reset-form").onsubmit=async e=>{e.preventDefault();status("Validando código...");const username=$("reset-username").value.trim(),password=$("reset-password").value,code=$("reset-code").value.trim();const btn=$("reset-form").querySelector('button[type="submit"]');btn.disabled=true;try{const res=await fetch(supabaseUrl+"/functions/v1/elab-reset",{method:"POST",headers:{"content-type":"application/json",apikey:publishableKey},body:JSON.stringify({username,password,code})});const data=await res.json();if(!res.ok||!data.ok){status(data.error??"Código não autorizado.",true);return;}$("reset-panel").classList.add("hidden");$("username").value=username;$("password").value=password;$("reset-password").value="";$("reset-code").value="";status("Senha atualizada. Entrando...");$("login").requestSubmit();}catch{status("Serviço de recuperação indisponível.",true);}finally{btn.disabled=false;}};
@@ -280,6 +285,6 @@ $("change-password-form").onsubmit=async e=>{
  }catch(err){feedback.textContent="Não foi possível alterar a senha: "+err.message+". Se necessário, utilize a recuperação com código autorizado.";}
  finally{button.disabled=false;}
 };
-$("logout").onclick=async()=>{await client.auth.signOut();await refresh();status("Sessão encerrada.");};
+$("logout").onclick=async()=>{profilesPanel.clear();await client.auth.signOut();await refresh();status("Sessão encerrada.");};
 $("refresh").onclick=load;$("date").onchange=async()=>{await load();const current=await session();if(current){const {data}=await client.from("elab_ops_members").select("role").eq("user_id",current.user.id).eq("active",true).maybeSingle();if(data?.role&&directions.has(data.role))await loadPresence(data.role);}};$("refresh-dashboard").onclick=refresh;await refresh();
 </script></body></html>
