@@ -1,5 +1,5 @@
 export async function readSubmittedProfiles(req,env,user){
- if(!['admin','manager','reception'].includes(user?.role)||user.temporaryReadOnly)throw Object.assign(Error('Acesso restrito à recepção e gestão.'),{status:403});
+ if(!['admin','manager','reception','commercial'].includes(user?.role)||user.temporaryReadOnly)throw Object.assign(Error('Acesso restrito à recepção, comercial e gestão.'),{status:403});
  if(req.method!=='GET')throw Object.assign(Error('Método não permitido.'),{status:405});
  if(!env.ELAB_PROFILE_SIGNING_KEY)throw Object.assign(Error('Consulta de perfis ainda não configurada.'),{status:503});
  const url=new URL(req.url),page=Number(url.searchParams.get('page')||0),search=(url.searchParams.get('search')||'').trim();

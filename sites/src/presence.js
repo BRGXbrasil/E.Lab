@@ -70,10 +70,12 @@ export function applyPresenceAction(shift, action, context = {}) {
   if (!responsible) throw Error('Informe o responsável pelo registro.');
   if (!validSchedule(shift)) throw Error('A escala está desativada ou tem data, horário ou situação inválida.');
   if (businessDay(instant) !== shift.date) throw Error('O registro de presença deve ser feito para o dia atual da escala.');
-  if (!['present','absent','dayoff','snooze'].includes(action?.type)) throw Error('Ação de presença inválida.');
+  if (!['present','absent','dayoff','snooze','departed'].includes(action?.type)) throw Error('Ação de presença inválida.');
 
   const type = action.type;
-  const reason = cleanText(action.reason);
+  const reason = cleanText(action.reason) || (type === 'departed' ? 'Profissional já foi embora.' : '');
+  if(type==='departed'&&shift.status==='absent'&&shift.checkedOutAt)return {shift:{...shift},event:null,changed:false};
+  if(type==='departed'&&shift.status!=='present')throw Error('Registre a chegada do profissional antes de marcar que já foi embora.');
   if (type === 'absent' && reason.length < 3) throw Error('Informe um motivo de ausência com pelo menos 3 caracteres.');
   if (type === 'snooze' && shift.status !== 'pending') throw Error('Só é possível adiar uma conferência pendente.');
 
@@ -84,9 +86,10 @@ export function applyPresenceAction(shift, action, context = {}) {
   if (type === 'present') {
     next.status = 'present';
     next.checkedInAt = recordedAt;
-  } else if (type === 'absent') {
+  } else if (type === 'absent' || type === 'departed') {
     next.status = 'absent';
     next.absenceAt = recordedAt;
+    if(type === 'departed')next.checkedOutAt = recordedAt;
     next.reason = reason;
   } else if (type === 'dayoff') {
     next.status = 'dayoff';

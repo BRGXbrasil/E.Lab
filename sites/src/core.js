@@ -1,12 +1,21 @@
-export const areas={reception:'Recepção',controls:'Estoque',cleaning:'Limpeza'};
-export const roles={admin:'Proprietário',manager:'Gestão',reception:'Recepção',professional:'Profissional',controls:'Estoque',cleaning:'Limpeza'};
+export const areas={reception:'Recepção',commercial:'Comercial',controls:'Estoque',cleaning:'Limpeza'};
+export const roles={admin:'Proprietário',manager:'Gestão',reception:'Recepção',commercial:'Comercial',professional:'Profissional',controls:'Estoque',cleaning:'Limpeza'};
 export function businessDate(now=new Date()){return new Intl.DateTimeFormat('en-CA',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(now)}
 export function addDays(date,n){const d=new Date(date+'T12:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
 export function weekStart(date){const d=new Date(date+'T12:00:00Z').getUTCDay();return addDays(date,-((d+6)%7))}
 export function due(task,date){if(!task.active||task.schedule==='review'||task.schedule==='demand')return false;const day=new Date(date+'T12:00:00Z').getUTCDay();if(task.schedule==='monthly'){return task.monthDay===-1?addDays(date,1).slice(8)==='01':Number(date.slice(8))===(task.monthDay||1)}return !task.days?.length||task.days.includes(day)}
 export function instanceKey(task,date,slot=1){return task.schedule==='three'?`${task.id}/${weekStart(date)}/${slot}`:`${task.id}/${date}`}
 export function canArea(role,area){return ['admin','manager'].includes(role)||role===area}
-export function canKind(role,kind){if(['admin','manager'].includes(role))return true;return ({run:['reception','controls','cleaning'],entry:['reception'],activation:['reception'],client:['reception','professional'],queue:['reception','professional'],queue_event:['reception','professional'],legacy:['reception'],inventory:['controls'],movement:['controls'],attendance:['reception'],training:['reception','professional','controls','cleaning']})[kind]?.includes(role)||false}
+export function canKind(role,kind){if(['admin','manager'].includes(role))return true;return ({run:['reception','commercial','controls','cleaning'],routine:['reception','commercial','controls','cleaning'],entry:['reception','commercial'],activation:['commercial'],client:['reception','commercial','professional'],queue:['reception','professional'],queue_event:['reception','professional'],legacy:['reception'],inventory:['controls'],movement:['controls'],attendance:['reception'],training:['reception','commercial','professional','controls','cleaning']})[kind]?.includes(role)||false}
+// Ownership is projected from current routines without rewriting historical records.
+export function recordArea(record,tasks=[]){
+ const data=record.data||{};
+ if(record.kind==='activation')return 'commercial';
+ if(record.kind==='run')return tasks.find(t=>t.id===data.taskId)?.area||data.area;
+ if(record.kind==='entry')return data.area||'reception';
+ if(record.kind==='routine')return data.area;
+ return null;
+}
 export const SERVICES=[['hair','Cabelos'],['nails','Manicure padrão'],['gel','Gel'],['brows','Sobrancelhas'],['makeup','Maquiagem']];
 export function effectiveStatus(person,day=businessDate()){return person.presenceDate===day?person.status:'unconfirmed'}
 export function ordered(q,reverse=false,day=businessDate()){
@@ -15,6 +24,12 @@ export function ordered(q,reverse=false,day=businessDate()){
  // Preserve the algorithm used by the original QueueLogic, including occupied-pointer fallback.
  const start=Math.max(0,available.findIndex(p=>p.name===q?.nextUp));
  const list=available.slice(start).concat(available.slice(0,start));return reverse?list.reverse():list;
+}
+export function agendaOrdered(q){
+ const people=(q?.people||[]).filter(p=>p.operational!==false&&isOperationalName(p.name));
+ if(!people.length)return [];
+ const start=Math.max(0,people.findIndex(p=>p.name===q?.nextUp));
+ return people.slice(start).concat(people.slice(0,start)).reverse();
 }
 export function queueEvent(previous,event){
  const day=event.day||businessDate(),q=structuredClone(previous||{people:[],nextUp:null,counts:{},future:[],week:''});q.counts||={};q.future||=[];q.people||=[];
@@ -32,7 +47,7 @@ export function queueEvent(previous,event){
   if(event.status==='present'&&wasAbsent&&q.nextUp===p.name)q.nextUp=nextAfter(p.name);
   if(!q.nextUp&&event.status==='present')q.nextUp=p.name;
  }else if(event.type==='pass'){
-  const mode=event.mode==='agenda'?'agenda':'now',list=ordered(q,mode==='agenda',day);if(!list.length||event.name!==list[0].name)throw Error('A passagem deve ser registrada para quem está na vez.');
+  const mode=event.mode==='agenda'?'agenda':'now',list=mode==='agenda'?agendaOrdered(q):ordered(q,false,day);if(!list.length||event.name!==list[0].name)throw Error('A passagem deve ser registrada para quem está na vez.');
   q.nextUp=mode==='agenda'?list[0].name:nextAfter(event.name);
  }else if(event.type==='attendance'){
   const p=person();if(effectiveStatus(p,day)!=='present'||ordered(q,false,day)[0]?.name!==p.name)throw Error('Registre o atendimento de quem está na vez e presente.');
@@ -45,7 +60,7 @@ export function queueEvent(previous,event){
   q.counts[name]=q.counts[p.name]||0;delete q.counts[p.name];if(q.nextUp===p.name)q.nextUp=name;q.future.forEach(f=>{if(f.professional===p.name)f.professional=name});p.name=name;
  }else if(event.type==='schedule'){
   if(!cleanName(event.client)||!event.at||!Number.isFinite(Date.parse(event.at)))throw Error('Informe cliente e data válidos.');
-  if(q.future.some(f=>f.id===event.id))throw Error('Reserva já cadastrada.');const professional=event.professional||ordered(q,true,day)[0]?.name;if(!names.includes(professional))throw Error('Escolha um profissional cadastrado.');
+  if(q.future.some(f=>f.id===event.id))throw Error('Reserva já cadastrada.');const professional=event.professional||agendaOrdered(q)[0]?.name;if(!names.includes(professional))throw Error('Escolha um profissional cadastrado.');
   q.future.push({id:event.id,client:cleanName(event.client),professional,service:cleanName(event.service),at:event.at,status:'scheduled',createdAt:event.createdAt,needsConference:false});
  }else if(['unschedule','confirm-appointment','no-show'].includes(event.type)){
   const f=q.future.find(x=>x.id===event.id);if(!f||!['scheduled',undefined].includes(f.status))throw Error('Agendamento já encerrado ou inexistente.');

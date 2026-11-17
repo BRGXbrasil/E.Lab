@@ -4,7 +4,7 @@ const core=read('src/core.js');
 const strip=s=>s.replace(/^import .*?;\n/gm,'').replace(/export /g,'');
 const scoped=p=>{const s=read(p),names=[...s.matchAll(/export (?:async )?(?:function|const) (\w+)/g)].map(m=>m[1]);return 'const {'+names.join(',')+'}=(()=>{'+strip(s)+'\nreturn {'+names.join(',')+'};})();'};
 const features=['src/profile-bridge.js','src/temporary-view.js','src/procedure-ai.js','src/presence.js','src/imports.js','src/replenishment.js','src/stock-order.js','src/stock-reports.js','src/avec.js','src/stock-state.js','src/features.js','src/import-api.js','src/avec-maintenance.js','src/stock-reports-maintenance.js'].map(scoped).join('\n');
-const client=core.replace(/export /g,'')+'\n'+scoped('src/imports.js')+'\n'+scoped('src/stock-reports.js')+'\n'+scoped('src/avec.js')+'\n'+scoped('src/spreadsheet.js')+'\n'+read('src/client.js').replace('// __FEATURE_CLIENT__',read('src/feature-client.js')+'\n'+read('src/avec-client.js'));
+const client=core.replace(/export /g,'')+'\n'+scoped('src/performance-report.js')+'\n'+scoped('src/imports.js')+'\n'+scoped('src/stock-reports.js')+'\n'+scoped('src/avec.js')+'\n'+scoped('src/spreadsheet.js')+'\n'+read('src/client.js').replace('// __FEATURE_CLIENT__',read('src/feature-client.js')+'\n'+read('src/avec-client.js'));
 let html=read('src/page.html').replace('__CSS__',read('src/style.css')).replace('__JS__',client.replace(/<\/script/gi,'<\\/script'));
 fs.writeFileSync('src/ui.js','export const HTML='+JSON.stringify(html)+';\n');
 const brandFonts = Object.fromEntries(fs.readdirSync('vendor/brand-fonts').filter(name=>name.endsWith('.woff2')).map(name=>['/assets/brand/'+name,fs.readFileSync('vendor/brand-fonts/'+name).toString('base64')]));

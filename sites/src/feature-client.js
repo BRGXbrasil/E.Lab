@@ -3,8 +3,8 @@ const canOperatePresence=()=>['admin','manager','reception'].includes(session?.r
 const presenceLabels={pending:'Aguardando chegada',present:'Presente',absent:'Ausente',dayoff:'Folga',leave:'Licença'};
 const money=c=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).format(c/100);
 async function refreshFeatures(forceStock=false){
- const presence=request('/api/presence?date='+encodeURIComponent(view==='presence'?date:businessDate())).then(data=>{presenceState=data});
- const features=(async()=>{if(canImport())avecSummary=await request('/api/avec-summary');const stamp=avecSummary.updatedAt||'empty';if(['results','panel'].includes(view)&&(management()||session.role==='reception')&&resultLoadedStamp!==stamp){resultState=await request('/api/results');resultLoadedStamp=stamp}if(['inventory','replenishment'].includes(view)&&canStock())await loadStock(avecSummary.stock?.version||stamp,forceStock)})();
+ const presence=session.role==='commercial'?Promise.resolve():request('/api/presence?date='+encodeURIComponent(view==='presence'?date:businessDate())).then(data=>{presenceState=data});
+ const features=(async()=>{if(canImport()||session.role==='commercial')avecSummary=await request('/api/avec-summary');const stamp=avecSummary.updatedAt||'empty';if(['results','panel','commercial'].includes(view)&&(management()||['reception','commercial'].includes(session.role))&&resultLoadedStamp!==stamp){resultState=await request('/api/results');resultLoadedStamp=stamp}if(['inventory','replenishment'].includes(view)&&canStock())await loadStock(avecSummary.stock?.version||stamp,forceStock)})();
  await Promise.all([presence,features]);
 }
 function presencePage() {

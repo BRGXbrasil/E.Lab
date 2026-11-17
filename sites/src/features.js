@@ -8,7 +8,7 @@ export function projectPresenceQueue(original,events,staff,today){
  const cursor=q.presenceCursor?.day===today?q.presenceCursor:{at:'',id:''};const newer=(a,b)=>a.at>b.at||(a.at===b.at&&a.id>b.id);
  for(const r of [...events].sort((a,b)=>a.data.at<b.data.at?-1:a.data.at>b.data.at?1:a.id<b.id?-1:a.id>b.id?1:0)){const v=r.data,key={at:v.at,id:r.id};if(v.date!==today||!newer(key,cursor))continue;
  const name=names.get(v.staffId),p=q.people.find(p=>p.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase()===name);
- if(p){if(['absent','dayoff','leave'].includes(v.type)){q=queueEvent(q,{type:'status',name:p.name,status:'absent',day:today});q.people.find(x=>x.name===p.name).presenceManagedAbsence=true}
+ if(p){if(['absent','dayoff','leave','departed'].includes(v.type)){q=queueEvent(q,{type:'status',name:p.name,status:'absent',day:today});q.people.find(x=>x.name===p.name).presenceManagedAbsence=true}
  if(v.type==='present'&&(['unconfirmed','absent'].includes(effectiveStatus(p,today)))){q=queueEvent(q,{type:'status',name:p.name,status:'present',day:today});q.people.find(x=>x.name===p.name).presenceManagedAbsence=false}}
  q.presenceCursor={...key,day:today};
  }return q;

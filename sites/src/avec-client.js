@@ -14,8 +14,9 @@ function avecOverview(){
 }
 function resultDate(r){const d=r.data.normalized;return r.kind==='avec_cash'?(d[financialBasis]||d.date):d.date}
 let resultProfessional='';
-function performanceCards(report) {
+function performanceCards(report, includeRevenue=false) {
  const metrics=[
+  ...(includeRevenue?[['Receita de serviços',money(report.amountCents)]]:[]),
   ['Clientes atendidas',report.clients],
   ['Serviços realizados',report.services],
   ['Ticket médio por comanda',report.ticketCents===null?'—':money(report.ticketCents)],
@@ -26,6 +27,7 @@ function performanceCards(report) {
  return `<div class="metric-grid">${metrics.map(([name,value])=>`<section class="card"><div class="label">${name}</div><h2>${value}</h2></section>`).join('')}</div>`;
 }
 function teamAvailability() {
+ if(session?.role==='commercial')return '';
  const ids=new Set(presenceState.staff.filter(isOperationalStaff).map(p=>p.id));
  const present=presenceState.shifts.filter(r=>ids.has(r.data.staffId)&&r.data.status==='present').length;
  const occupied=new Set(byKind('queue').flatMap(r=>(r.data.people||[]).filter(p=>p.operational!==false&&isOperationalName(p.name)&&effectiveStatus(p)==='occupied').map(p=>p.name)));
@@ -34,37 +36,33 @@ function teamAvailability() {
 function resultsPage() {
  const from=resultFrom||avecSummary.services?.from||businessDate();
  const to=resultTo||avecSummary.services?.to||businessDate();
- const serviceRecords=resultState.services.filter(r=>isOperationalName(r.data.normalized.professional));
- const names=[...new Set(serviceRecords.map(r=>r.data.normalized.professional).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
+ const serviceRecords=resultState.services.filter(r=>isOperationalName(r.data?.normalized?.professional));
+ const names=[...new Set(serviceRecords.map(r=>r.data?.normalized?.professional).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'pt-BR'));
  const controls=`<div class="filters">${field('resultFrom','De',from,'date')}${field('resultTo','Até',to,'date')}${select('resultProfessional','Profissional',[['','Todos'],...names.map(n=>[n,n])],resultProfessional)}</div>`;
  if(from>to)return summary('Resultados','')+controls+empty('Revise o período.');
- const report=performanceReport(serviceRecords,from,to,resultProfessional);
- const months=[];
- for(let cursor=new Date(from.slice(0,7)+'-01T12:00:00Z');cursor<=new Date(to+'T12:00:00Z');cursor.setUTCMonth(cursor.getUTCMonth()+1)){
-   months.push(cursor.toISOString().slice(0,7));
- }
- const comparison=new Map();
- for(const r of serviceRecords){
-   const d=r.data.normalized;
-   if(!d.professional||d.date<from||d.date>to||(resultProfessional&&d.professional!==resultProfessional))continue;
-   const counts=comparison.get(d.professional)||new Map();
-   const month=d.date.slice(0,7);
-   counts.set(month,(counts.get(month)||0)+(Number(d.quantity)||0));
-   comparison.set(d.professional,counts);
- }
- const professionals=names.filter(n=>comparison.has(n)).map(name=>{
-   const counts=comparison.get(name);
-   return {name,counts,total:[...counts.values()].reduce((sum,n)=>sum+n,0)};
- });
+ const report=performanceOverview(serviceRecords,from,to,resultProfessional);
+ const months=report.months.map(m=>m.month);
+ const professionals=report.professionals.map(p=>({name:p.name,total:p.services,counts:new Map(p.months.map(m=>[m.month,m.services]))}));
+ const comparison=new Map(professionals.map(p=>[p.name,p.counts]));
  const monthLabel=month=>month.slice(5)+'/'+month.slice(0,4);
  const query=search.trim().toLocaleLowerCase('pt-BR');
- const portfolio=performanceReport(resultState.services,from,to).portfolio
+ const portfolio=performanceOverview(resultState.services,from,to).portfolio
    .filter(c=>!query||[c.name,c.classification].join(' ').toLocaleLowerCase('pt-BR').includes(query))
    .sort((a,b)=>b.last.localeCompare(a.last));
  const pages=Math.max(1,Math.ceil(portfolio.length/50));avecPage=Math.min(avecPage,pages-1);
- return summary('Resultados','')+controls+performanceCards(report)+
-  `<p class="help">Fonte: AVEC 0031</p>
-  <section class="card"><h2>Serviços por profissional e mês</h2>
+ const table=(headers,rows)=>rows.length?`<div class="table-wrap"><table class="audit-table"><thead><tr>${headers.map(h=>`<th scope="col">${e(h)}</th>`).join('')}</tr></thead><tbody>${rows.map(([name,...cells])=>`<tr><th scope="row">${e(name)}</th>${cells.map(cell=>`<td>${e(String(cell))}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`:empty('Sem serviços no período.');
+ const mix=(title,rows)=>`<section class="card" style="margin-top:24px"><h3>${title}</h3>${table(['Categoria / serviço','Quantidade','Receita','% da receita'],rows.map(r=>[r.name,r.services,money(r.amountCents),report.amountCents?((r.amountCents/report.amountCents)*100).toFixed(1)+'%':'—']))}</section>`;
+ return summary('Resultados','Relatório de performance · AVEC 0031')+controls+
+  `<section class="card"><h2>01 · Visão executiva</h2><p>${fmtDate(from)} a ${fmtDate(to)}${resultProfessional?' · '+e(resultProfessional):' · Profissionais operacionais'}</p><p class="help">Receita registrada em serviços, conforme Total do relatório 0031. Ticket por comanda, agrupada por unidade e data. Não representa recebimento financeiro.</p></section>`+performanceCards(report,true)+
+  `<p class="help">Fonte: AVEC 0031 · Histórico importado: ${report.coverageFrom?fmtDate(report.coverageFrom)+' a '+fmtDate(report.coverageTo):'sem dados'}. Indicadores e comparativos consideram profissionais operacionais${resultProfessional?' e o filtro selecionado':''}. A carteira do salão permanece completa.</p>
+  <p class="help">Primeira visita observada é a primeira no histórico importado; retorno observado inclui visita anterior ao período ou mais de uma comanda no período. Uma cliente pode aparecer nos dois indicadores. Clientes sem nome: ${report.unidentifiedRows} linhas${report.excludedRows?' · '+report.excludedRows+' registros inválidos ou de outra origem desconsiderados':''}.</p>
+  <section class="card" style="margin-top:24px"><h2>02 · Performance por profissional</h2>
+   ${table(['Profissional','Clientes','Serviços','Comandas','Receita','Ticket / comanda','Primeiras observadas','Retorno observado'],report.professionals.map(p=>[p.name,p.clients,p.services,p.visits,money(p.amountCents),p.ticketCents===null?'—':money(p.ticketCents),p.firstObserved,p.returning]))}
+  </section>
+  <section class="card" style="margin-top:24px"><h2>03 · Evolução mensal</h2><p class="help">Meses sem serviços aparecem zerados. O primeiro e o último mês respeitam as datas selecionadas e podem ser parciais.</p>
+   ${table(['Mês','Receita de serviços','Serviços'],report.months.map(m=>[monthLabel(m.month),money(m.amountCents),m.services]))}
+  </section>
+  <section class="card" style="margin-top:24px"><h2>Serviços por profissional e mês</h2>
    ${comparison.size?`<div class="table-wrap wide-results"><table class="audit-table"><thead><tr><th scope="col">Profissional</th>${months.map(m=>`<th scope="col">${e(monthLabel(m))}</th>`).join('')}<th scope="col">Total</th></tr></thead><tbody>
    ${professionals.map(({name,counts,total})=>`<tr><th scope="row">${e(name)}</th>${months.map(m=>`<td>${counts.get(m)||0}</td>`).join('')}<td>${total}</td></tr>`).join('')}
    </tbody></table></div><div class="compact-results">
@@ -72,8 +70,16 @@ function resultsPage() {
      <summary><strong>${e(name)}</strong><span>${total} serviços</span></summary>
      <dl class="fact-grid">${months.map(m=>`<div><dt>${e(monthLabel(m))}</dt><dd>${counts.get(m)||0}</dd></div>`).join('')}</dl>
    </details>`).join('')}</div>`:empty('Sem serviços no período.')}</section>
+  <section class="card" style="margin-top:24px"><h2>04 · Serviços e carteira</h2><p>Com base nas comandas do período: ${report.singleVisitClients} clientes com uma visita · ${report.recurringClients} com duas ou mais.</p></section>
+  ${mix('Distribuição por categoria',report.categories)}${mix('Mix de serviços',report.serviceMix)}
+  <section class="card" style="margin-top:24px"><h2>05 · Oportunidades observadas</h2><div class="metric-grid">
+   <div><div class="label">Segunda visita</div><h3>${report.singleVisitClients} clientes</h3><p class="help">Uma única comanda no período; consultar o histórico antes de agir.</p></div>
+   <div><div class="label">Relacionamento</div><h3>${report.atRiskClients} clientes</h3><p class="help">Atendidas no período, com última visita observada há mais de 60 dias na data final selecionada.</p></div>
+   <div><div class="label">Serviço adicional</div><h3>${report.singleServiceVisits} comandas</h3><p class="help">Uma unidade de serviço no período; base para avaliar oferta complementar.</p></div>
+  </div><p class="help">Contagens para orientar análise, sem estimativa de receita futura.</p></section>
+  <section class="card" style="margin-top:24px"><h2>06 · Direcionamento</h2><p>Compare volume, receita e ticket por profissional; use o mix de serviços e a carteira para orientar o acompanhamento.</p><p class="help">Rotatividade, saídas de profissionais, ocupação de agenda e canais de aquisição: indisponíveis no relatório 0031. Dependem de dados adicionais; ausência de lançamento não comprova saída da equipe.</p></section>
   <div class="divider"></div>${teamAvailability()}
-  <section class="card" style="margin-top:24px"><h2>Carteira do salão</h2>
+  <section class="card" style="margin-top:24px"><h2>Carteira do salão</h2><p class="help">Histórico completo até ${fmtDate(to)}, independente do filtro de profissional. Classificação por comandas observadas em todo o histórico importado.</p>
    <input class="field search" id="search" aria-label="Buscar na carteira" placeholder="Nome ou classificação" value="${e(search)}">
    ${portfolio.slice(avecPage*50,avecPage*50+50).map(c=>`<div class="row"><div class="row-body"><strong>${e(c.name)}</strong><p>Última visita ${fmtDate(c.last)}</p></div>${pill('done',c.classification)}</div>`).join('')||empty('Nenhuma cliente encontrada.')}
    <div class="actions">${avecPage?btn('avec-page','Anterior',String(avecPage-1)):''}<span class="help">Página ${avecPage+1} de ${pages}</span>${avecPage+1<pages?btn('avec-page','Próxima',String(avecPage+1)):''}</div>
