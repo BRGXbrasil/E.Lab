@@ -5,19 +5,19 @@ import {APPROVED_STAFF, shouldAlert, applyPresenceAction} from '../src/presence.
 const scheduled = overrides => ({staffId:'regina', date:'2026-11-09', start:'08:00', toleranceMinutes:60, status:'pending', enabled:true, ...overrides});
 const context = overrides => ({at:'2026-11-09T12:00:00.000Z', actor:'recepcao', ...overrides});
 
-test('approved roster has the exact 25 names, starts, stable IDs and the Tuesday–Saturday schedule', () => {
+test('approved roster has the approved names, starts, stable IDs and the Tuesday–Saturday schedule', () => {
   assert.deepEqual(APPROVED_STAFF.map(({name,start}) => [name,start]), [
     ['Regina','08:00'],['Patrícia','07:00'],['Diego','08:30'],['Bruna Nunes','08:30'],
     ['Bruna Chagas','10:00'],['Bruna Gomes','11:00'],['Gabriele','11:00'],['Arlete','12:00'],
     ['Marina','09:00'],['Alana','09:00'],['Camila','12:00'],['Allan','11:00'],
     ['Wallace','09:00'],['Dani','10:00'],['Luiza','10:00'],['Mara','10:00'],
     ['Cesar','09:00'],['Dhandara','10:00'],['Karin','10:00'],['Talita','11:00'],
-    ['Noelia','10:00'],['Rogério','09:00'],['Thiago','09:00'],['Salles','10:00'],['Diogo','10:00']
+    ['Noelia','10:00'],['Rogério','09:00'],['Thiago','09:00'],['Salles','10:00'],['Diogo','10:00'],['Déia',null]
   ]);
   assert.deepEqual(APPROVED_STAFF.map(person => person.id), [
     'regina','patricia','diego','bruna-nunes','bruna-chagas','bruna-gomes','gabriele','arlete',
     'marina','alana','camila','allan','wallace','dani','luiza','mara','cesar','dhandara',
-    'karin','talita','noelia','rogerio','thiago','salles','diogo'
+    'karin','talita','noelia','rogerio','thiago','salles','diogo','deia'
   ]);
   for (const person of APPROVED_STAFF) {
     assert.equal(person.toleranceMinutes,60);

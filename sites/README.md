@@ -26,3 +26,8 @@ Resultados usa as linhas normalizadas do AVEC 0031 para visão executiva, perfor
 
 
 Resultados reproduz o modelo individual de cinco páginas do Drive `Relatório_de_Performance.html` (ID `1UIlMBoKQ1Ug_4P_kc-3qjKwk4JPL6OxM`), com visual branco/dourado, filtros e impressão PDF. Os exemplos do modelo não são dados operacionais. Retornos 30/60 dias usam clientes com janela completa; frequência usa intervalos entre datas distintas. Segmentação exclusiva: em risco (>60 dias), VIP (>=5 comandas), recorrente (>=2), ativa. Oportunidades exibem receita histórica, sem previsão. Nível, ocupação e avaliação interna permanecem não informados por falta dos critérios/dados correspondentes.
+
+
+Agenda possui ponteiro próprio, separado de Agora. Reservas ficam separadas em futuras, para conferência na data, encerradas e recuperadas sem data conhecida. Cancelamento ou não comparecimento devolve a vez uma única vez; conclusão exige data já alcançada e não duplica contagens de atendimentos. A recuperação combina os registros e as auditorias existentes sem reabrir reservas encerradas nem inventar datas.
+
+Conferência de vitrine fica no Estoque (abertura diária); limpeza das vitrines mantém frequência semanal e ID histórico, agora no setor Limpeza. O círculo de progresso usa o setor/data selecionados e exclui rotinas não aplicáveis do denominador. Presença inclui Diego e Déia; o horário de Déia permanece a definir e pode ser informado para cada jornada na primeira marcação. Nenhuma chegada é marcada automaticamente.

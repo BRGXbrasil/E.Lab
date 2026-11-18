@@ -28,11 +28,53 @@ export function ordered(q,reverse=false,day=businessDate()){
 export function agendaOrdered(q){
  const people=(q?.people||[]).filter(p=>p.operational!==false&&isOperationalName(p.name));
  if(!people.length)return [];
- const start=Math.max(0,people.findIndex(p=>p.name===q?.nextUp));
- return people.slice(start).concat(people.slice(0,start)).reverse();
+ const start=Math.max(0,people.findIndex(p=>p.name===(q?.agendaNextUp??q?.nextUp)));
+ const list=people.slice(start).concat(people.slice(0,start)).reverse();
+ const returned=(q?.agendaReturns||[]).map(r=>people.find(p=>p.name===r.professional)).filter(Boolean);
+ return [...new Map([...returned,...list].map(p=>[p.name,p])).values()];
+}
+export function appointmentDate(appointment){
+ const at=appointment?.at;if(!at||!Number.isFinite(Date.parse(at)))return '';
+ return /^\d{4}-\d\d-\d\d(?:T\d\d:\d\d(?::\d\d)?)?$/.test(at)?at.slice(0,10):businessDate(new Date(at));
+}
+export function appointmentSections(q,day=businessDate()){
+ const result={upcoming:[],conference:[],history:[],recovered:[]};
+ for(const f of q?.future||[]){if(f.status&&!['scheduled','pending'].includes(f.status))result.history.push(f);else if(!appointmentDate(f))result.recovered.push(f);else result[appointmentDate(f)>day?'upcoming':'conference'].push(f)}
+ for(const rows of Object.values(result))rows.sort((a,b)=>(a.at||'').localeCompare(b.at||''));return result;
+}
+// Merge evidence by appointment identity; missing snapshots alone never establish an outcome.
+export function recoverQueueAppointments(previous,service,records=[],audits=[],source={}){
+ const q=structuredClone(previous||{people:[],counts:{},future:[]}),found=new Map(),evidence=[];
+ const parse=x=>{if(typeof x!=='string')return x;try{return JSON.parse(x)}catch{return null}};
+ const snapshot=(value,label,stamp='',depth=0)=>{value=parse(value);if(!value||typeof value!=='object'||depth>5)return;
+  if(value[service]){const list=value[service].future||value[service].futureQueue||[];for(const f of list)evidence.push({f,source:label,stamp});for(const event of value[service].events||[])eventEvidence(event,label,stamp);}
+  for(const key of ['snapshot','raw','data','queues'])if(value[key])snapshot(value[key],label,stamp,depth+1);
+ };
+ const eventEvidence=(v,label,stamp)=>{if(!v)return;const id=v.appointmentId||v.id;if(!id)return;
+  if(['schedule','appointment_created'].includes(v.type))evidence.push({f:{id,client:v.client,professional:v.professional,service:v.service,at:v.type==='schedule'?v.at:v.appointmentAt||v.scheduledAt||null,createdAt:v.createdAt||stamp,status:'scheduled'},source:label,stamp});
+  const status=({'confirm-appointment':'attended','no-show':'no_show',unschedule:'cancelled'})[v.type];if(status)evidence.push({f:{id,status,confirmedAt:stamp},source:label,stamp});
+ };
+ snapshot(source,'Arquivo original');
+ for(const r of records){if(r.kind==='source_snapshot')snapshot(r.data,r.data.source||r.id,r.updatedAt);if(r.kind==='queue_event'&&r.data?.service===service)eventEvidence(r.data.event,r.data.source||r.id,r.data.at||r.updatedAt);}
+ for(const a of audits){if((a.record_id||a.recordId)==='queue/'+service){const data=parse(a.data);for(const f of data?.future||[])evidence.push({f,source:'Auditoria da Lista da Vez',stamp:a.at});}}
+ evidence.sort((a,b)=>(a.stamp||'').localeCompare(b.stamp||''));
+ const terminal=status=>['attended','no_show','cancelled'].includes(status);
+ const merge=(f,label,recovered)=>{
+  if(!f?.id)return;
+  f={...f,client:f.client||f.nome,professional:f.professional||f.prof,service:f.service||f.serv,at:f.at||f.scheduledAt};
+  const old=found.get(f.id)||{},values=Object.fromEntries(Object.entries(f).filter(([,v])=>v!==undefined&&v!==null&&v!==''));
+  // Reopening is not an allowed transition: stale pending snapshots cannot erase an outcome.
+  if(terminal(old.status)&&!terminal(values.status)){values.status=old.status;values.confirmedAt=old.confirmedAt;values.needsConference=false;}
+  found.set(f.id,{...old,...values,...(!old.id&&recovered?{recovered:true,recoverySource:label}:{}),status:values.status||old.status||'scheduled'});
+ };
+ for(const item of evidence)merge(item.f,item.source,true);
+ for(const f of q.future||[])merge(f,f.source,false);
+ q.future=[...found.values()].filter(f=>f.client&&f.professional);return q;
 }
 export function queueEvent(previous,event){
  const day=event.day||businessDate(),q=structuredClone(previous||{people:[],nextUp:null,counts:{},future:[],week:''});q.counts||={};q.future||=[];q.people||=[];
+ q.agendaNextUp??=q.nextUp;
+ const consumeAgenda=name=>{const returned=(q.agendaReturns||[]).findIndex(r=>r.professional===name);if(returned>=0)q.agendaReturns.splice(returned,1);else q.agendaNextUp=name};
  const cleanName=x=>typeof x==='string'?x.trim().slice(0,100):'';
  const names=q.people.map(x=>x.name);const eligible=()=>q.people.filter(p=>p.operational!==false&&isOperationalName(p.name)&&effectiveStatus(p,day)==='present');
  const nextAfter=name=>{const available=eligible();if(!available.length)return null;const i=available.findIndex(p=>p.name===name);if(i>=0)return available[(i+1)%available.length].name;const j=q.people.findIndex(p=>p.name===name);return (available.find(p=>q.people.indexOf(p)>j)||available[0]).name};
@@ -48,7 +90,7 @@ export function queueEvent(previous,event){
   if(!q.nextUp&&event.status==='present')q.nextUp=p.name;
  }else if(event.type==='pass'){
   const mode=event.mode==='agenda'?'agenda':'now',list=mode==='agenda'?agendaOrdered(q):ordered(q,false,day);if(!list.length||event.name!==list[0].name)throw Error('A passagem deve ser registrada para quem está na vez.');
-  q.nextUp=mode==='agenda'?list[0].name:nextAfter(event.name);
+  if(mode==='agenda')consumeAgenda(event.name);else q.nextUp=nextAfter(event.name);
  }else if(event.type==='attendance'){
   const p=person();if(effectiveStatus(p,day)!=='present'||ordered(q,false,day)[0]?.name!==p.name)throw Error('Registre o atendimento de quem está na vez e presente.');
   if(!cleanName(event.client))throw Error('Informe a cliente para registrar o atendimento.');
@@ -57,15 +99,18 @@ export function queueEvent(previous,event){
   person();const next=q.nextUp===event.name?nextAfter(event.name):q.nextUp;q.people=q.people.filter(x=>x.name!==event.name);q.nextUp=next===event.name?null:next;
  }else if(event.type==='rename'){
   const p=person(),name=cleanName(event.newName);if(!name||names.some(n=>n!==p.name&&n.toLocaleLowerCase('pt-BR')===name.toLocaleLowerCase('pt-BR')))throw Error('Nome já cadastrado ou inválido.');
-  q.counts[name]=q.counts[p.name]||0;delete q.counts[p.name];if(q.nextUp===p.name)q.nextUp=name;q.future.forEach(f=>{if(f.professional===p.name)f.professional=name});p.name=name;
+  q.counts[name]=q.counts[p.name]||0;delete q.counts[p.name];if(q.nextUp===p.name)q.nextUp=name;if(q.agendaNextUp===p.name)q.agendaNextUp=name;for(const r of q.agendaReturns||[])if(r.professional===p.name)r.professional=name;q.future.forEach(f=>{if(f.professional===p.name)f.professional=name});p.name=name;
  }else if(event.type==='schedule'){
   if(!cleanName(event.client)||!event.at||!Number.isFinite(Date.parse(event.at)))throw Error('Informe cliente e data válidos.');
-  if(q.future.some(f=>f.id===event.id))throw Error('Reserva já cadastrada.');const professional=event.professional||agendaOrdered(q)[0]?.name;if(!names.includes(professional))throw Error('Escolha um profissional cadastrado.');
-  q.future.push({id:event.id,client:cleanName(event.client),professional,service:cleanName(event.service),at:event.at,status:'scheduled',createdAt:event.createdAt,needsConference:false});
+  if(q.future.some(f=>f.id===event.id))throw Error('Reserva já cadastrada.');const professional=event.professional||agendaOrdered(q)[0]?.name;if(!names.includes(professional))throw Error('Escolha um profissional cadastrado.');if(agendaOrdered(q)[0]?.name!==professional)throw Error('Agende para o profissional que está na vez da Agenda.');
+  q.future.push({id:event.id,client:cleanName(event.client),professional,service:cleanName(event.service),at:event.at,status:'scheduled',createdAt:event.createdAt,needsConference:true});consumeAgenda(professional);
  }else if(['unschedule','confirm-appointment','no-show'].includes(event.type)){
-  const f=q.future.find(x=>x.id===event.id);if(!f||!['scheduled',undefined].includes(f.status))throw Error('Agendamento já encerrado ou inexistente.');
-  f.status=event.type==='confirm-appointment'?'attended':event.type==='no-show'?'no_show':'cancelled';f.confirmedAt=event.createdAt;f.needsConference=false;
-  // Agenda confirmation records its outcome without moving Agora or counting twice.
+  const f=q.future.find(x=>x.id===event.id),status=event.type==='confirm-appointment'?'attended':event.type==='no-show'?'no_show':'cancelled';
+  if(!f)throw Error('Agendamento inexistente.');if(f.status===status)return q;
+  if(!['scheduled','pending',undefined].includes(f.status))throw Error('Agendamento já encerrado.');
+  if(event.type!=='unschedule'&&(!appointmentDate(f)||appointmentDate(f)>day))throw Error('Confira o agendamento a partir da data marcada.');
+  f.status=status;f.confirmedAt=event.createdAt;f.needsConference=false;
+  if(status!=='attended'&&!f.turnReturned){q.agendaReturns||=[];q.agendaReturns.push({appointmentId:f.id,professional:f.professional});f.turnReturned=true;}
  }else throw Error('Ação inválida.');
  return q;
 }

@@ -9,13 +9,13 @@ async function refreshFeatures(forceStock=false){
 }
 function presencePage() {
  const {staff,shifts}=presenceState;
- const people=staff.filter(isOperationalStaff);
+ const people=staff.filter(p=>p.active&&p.operational!==false);
  const today=date===businessDate();
  return summary('Presença','')+`<div class="filters">${field('presenceDate','Data',date,'date')}<span class="pill">Terça a sábado</span></div>
   <div class="people-grid">${people.map(p=>{
    const d=shifts.find(r=>r.data.staffId===p.id)?.data;
    const status=d?.status;
-   const text=`<strong>${e(p.name)}</strong><span class="presence-time">${status==='dayoff'?'—':e(d?.start||p.start)}</span>${pill(status,presenceLabels[status]||'Sem registro')}`;
+   const text=`<strong>${e(p.name)}</strong><span class="presence-time">${status==='dayoff'?'—':e(d?.start||p.start||'Horário a definir')}</span>${pill(status,presenceLabels[status]||'Sem registro')}`;
    return `<div class="person-tile">${today&&d&&canOperatePresence()&&!session.temporaryReadOnly?`<button type="button" class="person-button ${e(status)}" data-action="presence-person" data-id="${e(p.id)}">${text}</button>`:`<div class="person-button ${e(status)}">${text}</div>`}</div>`;
   }).join('')||empty('Sem equipe operacional.')}</div>`;
 }
@@ -28,10 +28,11 @@ async function presencePerson(id) {
  if(!person||!shift)return toast('Atualize a lista para carregar esta data.',true);
  if(!canOperatePresence())return modal(person.name,
   `<p>${e(presenceLabels[shift.data.status])} · ${fmtDate(shift.data.date)}</p>`,'Fechar',async()=>{});
+ const needsStart=!shift.data.start;
  modal(person.name,
-  select('status','Situação',[['present','Presente'],['absent','Ausente'],['dayoff','Folga']],shift.data.status==='pending'?'present':shift.data.status)+
+  (needsStart?field('start','Horário de entrada nesta data','','time',true):'')+select('status','Situação',[['present','Presente'],['absent','Ausente'],['dayoff','Folga']],shift.data.status==='pending'?'present':shift.data.status)+
   textarea('reason','Justificativa (obrigatória para ausência)',shift.data.status==='absent'?shift.data.reason:''),
-  'Salvar situação',f=>presenceChange(shift.id,f.status,f.reason));
+  'Salvar situação',async f=>{if(needsStart&&!presenceState.shifts.find(r=>r.id===shift.id)?.data.start){const saved=await request('/api/schedules',{action:'shift',id:shift.id,revision:shift.revision,start:f.start,status:'pending',reason:'Horário informado na conferência diária'});presenceState.shifts=presenceState.shifts.map(r=>r.id===shift.id?saved.record:r)}return presenceChange(shift.id,f.status,f.reason)});
 }
 function shiftModal(r,p){modal('Jornada · '+p.name,field('start','Horário previsto',r.data.start,'time',true)+select('status','Situação',[['pending','Trabalha: aguardar chegada'],['dayoff','Folga'],['leave','Licença']],r.data.status)+textarea('reason','Motivo da alteração'),'Salvar jornada',f=>request('/api/schedules',{action:'shift',id:r.id,revision:r.revision,...f}))}
 function importsPage(){return summary('Central AVEC','')+btn('avec-connect','Conectar','','primary')}

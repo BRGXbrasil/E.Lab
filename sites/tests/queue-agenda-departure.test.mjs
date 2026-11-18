@@ -66,3 +66,15 @@ test('presence API departure persists after refresh, reaches all queues, and fut
  const saved=sql.prepare("SELECT data FROM records WHERE id='queue/hair'").get();assert.deepEqual(JSON.parse(saved.data).counts,{});
  sql.close();
 });
+
+
+test('Déia é operacional nas filas históricas de maquiagem e sobrancelhas, sem presença inventada',async()=>{
+ const {APPROVED_STAFF}=await import('../src/presence.js');
+ const {enforceQueuePresence}=await import('../src/features.js');
+ const deia=APPROVED_STAFF.find(p=>p.id==='deia');assert.equal(deia.name,'Déia');assert.equal(deia.start,null);
+ for(const service of ['makeup','brows']){
+  const q=enforceQueuePresence({people:[{name:'Déia',status:'present',presenceDate:'2026-10-24',operational:false}],counts:{},future:[],nextUp:'Déia'},APPROVED_STAFF,[],day);
+  assert.equal(q.people[0].operational,true,service);assert.equal(q.people[0].status,'unconfirmed');
+  assert.equal(core.agendaOrdered(q)[0].name,'Déia');assert.deepEqual(core.ordered(q,false,day),[]);
+ }
+});

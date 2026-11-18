@@ -6,7 +6,7 @@ const initialRoster = [
   ['Marina','09:00'], ['Alana','09:00'], ['Camila','12:00'], ['Allan','11:00'],
   ['Wallace','09:00'], ['Dani','10:00'], ['Luiza','10:00'], ['Mara','10:00'],
   ['Cesar','09:00'], ['Dhandara','10:00'], ['Karin','10:00'], ['Talita','11:00'],
-  ['Noelia','10:00'], ['Rogério','09:00'], ['Thiago','09:00'], ['Salles','10:00'], ['Diogo','10:00']
+  ['Noelia','10:00'], ['Rogério','09:00'], ['Thiago','09:00'], ['Salles','10:00'], ['Diogo','10:00'], ['Déia',null]
 ];
 
 export const APPROVED_STAFF = initialRoster.map(([name,start]) => ({
