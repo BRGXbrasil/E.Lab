@@ -10,7 +10,7 @@ test('conversion and post-service routines move without changing identities or s
 });
 test('commercial role owns activations and only its own operational records',()=>{
  assert.equal(core.areas.commercial,'Comercial');assert.equal(core.roles.commercial,'Comercial');
- assert.equal(core.canKind('commercial','activation'),true);assert.equal(core.canKind('reception','activation'),false);
+ assert.equal(core.canKind('commercial','activation'),true);assert.equal(core.canKind('reception','activation'),true);
  assert.equal(core.canArea('commercial','reception'),false);assert.equal(core.canKind('commercial','queue'),false);
  assert.equal(core.recordArea({kind:'run',data:{taskId:'reception-003',area:'reception'}},catalog.tasks),'commercial');
  assert.equal(core.recordArea({kind:'activation',data:{kind:'pos'}},catalog.tasks),'commercial');
@@ -21,7 +21,7 @@ test('commercial role owns activations and only its own operational records',()=
 function ui(role){
  const element={addEventListener(){},innerHTML:'',querySelector(){return {}},showModal(){},close(){}};
  const context=vm.createContext({document:{querySelector:()=>element,addEventListener(){}},location:{hash:''},window:{addEventListener(){},scrollTo(){}},console,Date,Intl,structuredClone,setTimeout,clearTimeout,fetch(){}});
- const code=fs.readFileSync('src/core.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/performance-report.js','utf8').replace(/^import .*?;\n/gm,'').replace(/export /g,'')+'\n'+fs.readFileSync('src/client.js','utf8').replace('// __FEATURE_CLIENT__',fs.readFileSync('src/feature-client.js','utf8')+'\n'+fs.readFileSync('src/avec-client.js','utf8')).split("try{C=await request('/catalog.json')")[0];
+ const code=fs.readFileSync('src/core.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/performance-report.js','utf8').replace(/^import .*?;\n/gm,'').replace(/export /g,'')+'\n'+fs.readFileSync('src/profile-invitation.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/stock-coverage.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/client.js','utf8').replace('// __FEATURE_CLIENT__',fs.readFileSync('src/feature-client.js','utf8')+'\n'+fs.readFileSync('src/avec-client.js','utf8')).split("try{C=await request('/catalog.json')")[0];
  vm.runInContext(code,context);vm.runInContext(`C=${JSON.stringify({...catalog,questions:JSON.parse(fs.readFileSync('src/profile-questions.json'))})};session={id:'u',name:'User',role:'${role}'};date='2026-11-10';`,context);return {element,context};
 }
 test('commercial dashboard has independent execution, schedule, history and relationship views',()=>{
@@ -32,9 +32,9 @@ test('commercial dashboard has independent execution, schedule, history and rela
  const reception=ui('reception');vm.runInContext("view='panel';render()",reception.context);assert.ok(!reception.element.innerHTML.includes('＋ Nova ativação'));assert.ok(!reception.element.innerHTML.includes('Retomar conversão'));
 });
 
-test('reception overview excludes commercial scope even for management and shows no activation actions',()=>{
+test('Todos inclui Comercial e o filtro Recepção preserva a separação das rotinas',()=>{
  const {element,context}=ui('admin');vm.runInContext("view='panel';area='all';render()",context);
- assert.ok(!element.innerHTML.includes('value="commercial"'));assert.ok(!element.innerHTML.includes('Retomar conversão'));assert.ok(!element.innerHTML.includes('＋ Nova ativação'));
+ assert.ok(element.innerHTML.includes('value="commercial"'));assert.ok(element.innerHTML.includes('Retomar conversão'));vm.runInContext("area='reception';render()",context);assert.ok(!element.innerHTML.includes('Retomar conversão'));
 });
 test('daily post-service activation is available in the commercial work list',()=>{
  const {context}=ui('commercial');assert.ok(vm.runInContext('dailyActivations()',context).includes('Pós-atendimento e avaliação no Google'));

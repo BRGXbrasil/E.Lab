@@ -9,5 +9,6 @@ export async function readSubmittedProfiles(req,env,user){
  const signature=new Uint8Array(await crypto.subtle.sign({name:'ECDSA',hash:'SHA-256'},key,new TextEncoder().encode(body)));
  const response=await fetch('https://yrmsnykdxxqomkvxqnki.supabase.co/functions/v1/elab-profile-read',{method:'POST',headers:{'Content-Type':'application/json',apikey:'sb_publishable_nviD65C5Y-mgrj04dwEheQ_x17AjVfL','x-elab-signature':btoa(String.fromCharCode(...signature))},body,signal:AbortSignal.timeout(15000)});
  if(!response.ok)throw Object.assign(Error('Não foi possível atualizar os perfis. Tente novamente.'),{status:503});
- return new Response(await response.text(),{headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+ const payload=await response.json();if(env.DB&&Array.isArray(payload.profiles)){const archived=(await env.DB.prepare("SELECT data FROM records WHERE kind='profile_archive'").all()).results;const ids=new Set(archived.map(r=>JSON.parse(r.data).profileId));payload.profiles=payload.profiles.filter(p=>!ids.has(p.id))}
+ return new Response(JSON.stringify(payload),{headers:{'Content-Type':'application/json','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
 }

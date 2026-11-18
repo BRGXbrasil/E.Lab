@@ -30,7 +30,7 @@ test('departure requires prior arrival, preserves check-in and projects absence 
 });
 function contextForUI(q){
  const el={addEventListener(){},innerHTML:'',querySelector(){return {}},showModal(){},close(){}};
- const code=fs.readFileSync('src/core.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/performance-report.js','utf8').replace(/^import .*?;\n/gm,'').replace(/export /g,'')+'\n'+fs.readFileSync('src/client.js','utf8').replace('// __FEATURE_CLIENT__',fs.readFileSync('src/feature-client.js','utf8')+'\n'+fs.readFileSync('src/avec-client.js','utf8')).split("try{C=await request('/catalog.json')")[0];
+ const code=fs.readFileSync('src/core.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/performance-report.js','utf8').replace(/^import .*?;\n/gm,'').replace(/export /g,'')+'\n'+fs.readFileSync('src/profile-invitation.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/stock-coverage.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/client.js','utf8').replace('// __FEATURE_CLIENT__',fs.readFileSync('src/feature-client.js','utf8')+'\n'+fs.readFileSync('src/avec-client.js','utf8')).split("try{C=await request('/catalog.json')")[0];
  const ctx=vm.createContext({document:{querySelector:()=>el,addEventListener(){}},location:{hash:''},window:{addEventListener(){},scrollTo(){}},console,Date,Intl,structuredClone,setTimeout,clearTimeout,fetch(){}});vm.runInContext(code,ctx);
  vm.runInContext(`C=${fs.readFileSync('src/catalog.json','utf8')};session={role:'admin',name:'Teste'};presenceState.staff=${JSON.stringify(staff)};presenceState.shifts=${JSON.stringify(staff.map(p=>({id:'shift/'+day+'/'+p.id,data:{staffId:p.id,status:'present'}})))};records=[{id:'queue/hair',data:${JSON.stringify(q)}}];`,ctx);return ctx;
 }

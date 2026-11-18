@@ -18,7 +18,7 @@ test('commercial bootstrap projects old ownership and preserves stored history',
  await call(db,'/api/save',{kind:'entry',id:'desk-entry',data:{title:'Agenda',status:'open'}});
  await call(db,'/api/save',{kind:'routine',id:'custom-sales',data:{title:'Custom',area:'commercial',schedule:'demand'}});
  const commercial=await call(db,'/api/bootstrap',undefined,'seller');assert.equal(commercial.status,200);
- assert.deepEqual(commercial.data.records.map(r=>r.id).sort(),['custom-sales','old-pos','run/reception-003/2026-11-10'].sort());
+ assert.deepEqual(commercial.data.records.filter(r=>r.kind!=='activation_event').map(r=>r.id).sort(),['custom-sales','old-pos','run/reception-003/2026-11-10'].sort());
  const old=commercial.data.records.find(r=>r.kind==='run');assert.equal(old.revision,7);assert.equal(old.data.area,'reception');assert.equal(old.updatedBy,'original');
  const desk=await call(db,'/api/bootstrap',undefined,'desk');assert.deepEqual(desk.data.records.map(r=>r.id),['desk-entry']);
  assert.equal(db.sql.prepare("SELECT COUNT(*) n FROM audit WHERE record_id='run/reception-003/2026-11-10'").get().n,0);

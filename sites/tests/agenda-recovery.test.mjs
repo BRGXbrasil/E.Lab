@@ -43,13 +43,13 @@ test('legacy raw futureQueue aliases preserve appointment dates and deleted evid
 test('Agenda UI separates conference, upcoming, outcomes and recovered unknown dates',async()=>{
  const fs=await import('node:fs');const vm=await import('node:vm');
  const el={addEventListener(){},querySelector(){return {}},showModal(){},close(){}};
- const source=fs.readFileSync('src/core.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/client.js','utf8').split("try{C=await request('/catalog.json')")[0];
+ const source=fs.readFileSync('src/core.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/profile-invitation.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/stock-coverage.js','utf8').replace(/export /g,'')+'\n'+fs.readFileSync('src/client.js','utf8').split("try{C=await request('/catalog.json')")[0];
  const ctx=vm.createContext({document:{querySelector:()=>el,addEventListener(){}},location:{hash:''},window:{addEventListener(){},scrollTo(){}},console,Date,Intl,structuredClone,setTimeout,clearTimeout});
  vm.runInContext(source,ctx);
  const today=core.businessDate();const q=queue();q.future=[{id:'due',client:'Conferir cliente',professional:'Bia',at:today+'T12:00:00-03:00',status:'scheduled'},{id:'future',client:'Futura cliente',professional:'Ana',at:core.addDays(today,2)+'T12:00:00-03:00',status:'scheduled'},{id:'done',client:'Cliente concluída',professional:'Cris',at:today,status:'attended'},{id:'lost',client:'Cliente recuperada',professional:'Bia',status:'scheduled',recovered:true}];
  vm.runInContext(`session={role:'admin',name:'Teste'};presenceState={staff:[]};records=[{id:'queue/hair',data:${JSON.stringify(q)}}];queueTab='agenda';`,ctx);
- const html=vm.runInContext('queuePage()',ctx);for(const title of ['Agendamentos para conferir','Próximos agendamentos','Histórico de agendamentos','Histórico recuperado'])assert.ok(html.includes(title));
- assert.match(html,/data-action="appointment-confirm" data-id="due"/);assert.doesNotMatch(html,/data-action="appointment-confirm" data-id="future"/);assert.ok(html.includes('data não recuperada'));
+ const html=vm.runInContext('queuePage()',ctx);for(const title of ['Agendamentos para conferir','Próximos agendamentos','Histórico de agendamentos'])assert.ok(html.includes(title));assert.ok(!html.includes('Histórico recuperado'));
+ assert.match(html,/data-action="appointment-confirm" data-id="due"/);assert.doesNotMatch(html,/data-action="appointment-confirm" data-id="future"/);assert.ok(!html.includes('Cliente recuperada'));assert.ok(html.includes('Cliente concluída'));
 });
 
 test('queue API restores deleted audit appointment, validates server date and retains replayed return exactly once',async()=>{

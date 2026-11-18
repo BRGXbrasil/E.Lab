@@ -1,0 +1,18 @@
+import test from 'node:test';import assert from 'node:assert/strict';import fs from 'node:fs';import vm from 'node:vm';
+const read=p=>fs.readFileSync(p,'utf8'),strip=s=>s.replace(/^import .*?;\n/gm,'').replace(/export /g,'');
+function ui(role='admin'){
+ const el={innerHTML:'',open:false,addEventListener(){},querySelector(){return {}},showModal(){this.open=true},close(){this.open=false}};
+ const context=vm.createContext({document:{querySelector:()=>el,addEventListener(){}},location:{hash:'',origin:'https://elab.dazzlingbegonia2.chatgpt.site'},window:{addEventListener(){},scrollTo(){}},Date,Intl,URL,structuredClone,setTimeout,clearTimeout,console,fetch(){},crypto});
+ vm.runInContext(strip(read('src/core.js'))+'\n'+strip(read('src/performance-report.js'))+'\n'+strip(read('src/stock-coverage.js'))+'\n'+strip(read('src/profile-invitation.js'))+'\n'+read('src/client.js').replace('// __FEATURE_CLIENT__',read('src/feature-client.js')+'\n'+read('src/avec-client.js')).split("try{C=await request('/catalog.json')")[0],context);
+ vm.runInContext(`C=${read('src/catalog.json')};session={id:'owner',name:'Owner',role:'${role}'};date='2026-11-17';presenceState={staff:[],shifts:[]};view='panel';render()`,context);return {el,context};
+}
+test('painel abre Todos incluindo Comercial, sem indicadores de performance ou treinamento',()=>{const {el}=ui();assert.match(el.innerHTML,/value="all" selected/);assert.match(el.innerHTML,/value="commercial"/);assert.ok(!el.innerHTML.includes('Indicadores do salão'));assert.ok(!el.innerHTML.includes('data-id="training"'));assert.match(el.innerHTML,/Indicadores/);assert.match(el.innerHTML,/Disponibilidade x Presentes/)});
+test('quadro é interno e assistente tem texto objetivo inclusive no período de teste',()=>{const {el,context}=ui();vm.runInContext("session.testAccess=true;assistantState.board={connected:true,items:[{id:'1',title:'Rotina do time',owner:'',due:'',priority:'Urgente',status:'A fazer',url:'https://brgxbrasil.monday.com/boards/18416621523'}]};render()",context);assert.match(el.innerHTML,/Rotina do time/);assert.ok(!el.innerHTML.includes('Abrir quadro'));assert.match(el.innerHTML,/panelAssistantForm/);assert.ok(!el.innerHTML.includes('Entrar para usar a assistente'))});
+test('perfil oferece link e convite copiáveis',()=>{const {el,context}=ui();vm.runInContext("view='clients';render()",context);assert.match(el.innerHTML,/Copiar link/);assert.match(el.innerHTML,/Copiar convite/);assert.match(el.innerHTML,/antes da sua visita/)});
+test('cada setor operacional permite registrar ocorrências e executar rotinas sem configurar catálogo',()=>{for(const role of ['reception','controls','cleaning','commercial']){const {el}=ui(role);assert.match(el.innerHTML,/Novo registro/);assert.ok(!el.innerHTML.includes('＋ Configurar rotina'));assert.ok(!el.innerHTML.includes('data-action="member"'))}});
+
+test('gestão salva a política global sem exigir consumo manual de um produto',async()=>{
+ const {context}=ui();vm.runInContext(`globalThis.policyCalls=[];modal=(...args)=>{globalThis.policySave=args.at(-1)};request=async(path,body)=>{policyCalls.push({path,body});return {}};refreshFeatures=async()=>{};stockCoveragePolicyModal('global')`,context);
+ await vm.runInContext("policySave({leadDays:'10',postArrivalDays:'7',consumptionMode:'mean',reason:''})",context);
+ const data=vm.runInContext('policyCalls[0]',context);assert.equal(data.path,'/api/stock-policy');assert.equal(data.body.inputs.postArrivalDays,7);assert.equal(data.body.inputs.dailyUse,undefined);
+});
