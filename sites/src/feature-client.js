@@ -5,7 +5,8 @@ const money=c=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'}).
 async function refreshFeatures(forceStock=false){
  const presence=session.role==='commercial'?Promise.resolve():request('/api/presence?date='+encodeURIComponent(view==='presence'?date:businessDate())).then(data=>{presenceState=data});
  const features=(async()=>{if(canImport()||session.role==='commercial')avecSummary=await request('/api/avec-summary');const stamp=avecSummary.updatedAt||'empty';if(['results','panel','commercial'].includes(view)&&(management()||['reception','commercial'].includes(session.role))&&resultLoadedStamp!==stamp){resultState=await request('/api/results');resultLoadedStamp=stamp}if(['inventory','replenishment'].includes(view)&&canStock())await loadStock(avecSummary.stock?.version||stamp,forceStock||stockState.orderReport?.date!==businessDate())})();
- await Promise.all([presence,features]);
+ const imports=view==='imports'&&canImport()?request('/api/imports').then(data=>{importState=data}):Promise.resolve();
+ await Promise.all([presence,features,imports]);
 }
 function presencePage() {
  const {staff,shifts}=presenceState;

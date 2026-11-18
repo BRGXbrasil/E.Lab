@@ -16,3 +16,12 @@ test('gestão salva a política global sem exigir consumo manual de um produto',
  await vm.runInContext("policySave({leadDays:'10',postArrivalDays:'7',consumptionMode:'mean',reason:''})",context);
  const data=vm.runInContext('policyCalls[0]',context);assert.equal(data.path,'/api/stock-policy');assert.equal(data.body.inputs.postArrivalDays,7);assert.equal(data.body.inputs.dailyUse,undefined);
 });
+
+test('painel Estoque não apresenta sugestões de relacionamento do Comercial',()=>{
+ const {el,context}=ui('controls');assert.ok(!el.innerHTML.includes('Pós-atendimento e avaliação no Google'));vm.runInContext("session.role='admin';area='cleaning';render()",context);assert.ok(!el.innerHTML.includes('Pós-atendimento e avaliação no Google'));
+});
+
+test('Central AVEC carrega tipos e histórico sem exigir iniciar uma importação',async()=>{
+ const {el,context}=ui();vm.runInContext(`view='imports';request=async(path)=>path==='/api/imports'?{schemas:{'0031':{label:'Serviços importados'}},batches:[{id:'batch-1',data:{source:'0031',inserted:2}}],files:[]}:path.startsWith('/api/presence')?{staff:[],shifts:[],events:[]}:{}`,context);
+ await vm.runInContext('refreshFeatures()',context);vm.runInContext('render()',context);assert.match(el.innerHTML,/Serviços importados/);assert.match(el.innerHTML,/2 novos/);
+});
