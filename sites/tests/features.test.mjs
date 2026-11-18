@@ -40,3 +40,19 @@ test('Déia pode informar o horário da jornada antes de registrar chegada, sem 
  const arrival=await call(db,'/api/presence',{id:shift.id,revision:saved.data.record.revision,action:{type:'present'}});assert.equal(arrival.status,200);
  const after=(await call(db,'/api/presence')).data;assert.equal(after.staff.find(p=>p.id==='deia').start,null);assert.equal(after.shifts.find(r=>r.id===shift.id).data.status,'present');
 });
+
+test('exportação por dia e histórico exige perfil autorizado',async t=>{
+ t.mock.timers.enable({apis:['Date'],now:Date.parse('2026-11-17T15:00:00Z')});
+ const db=database();
+ for(const day of ['17','18']){
+  t.mock.timers.setTime(Date.parse('2026-11-'+day+'T15:00:00Z'));
+  const shift=(await call(db,'/api/presence')).data.shifts.find(r=>r.data.staffId==='regina');
+  assert.equal((await call(db,'/api/presence',{id:shift.id,revision:0,action:{type:'present'}})).status,200);
+ }
+ const all=await call(db,'/api/presence/history');
+ assert.deepEqual(all.data.shifts.map(s=>s.date),['2026-11-17','2026-11-18']);
+ assert.equal(all.data.shifts[0].name,'Regina');
+ assert.equal((await call(db,'/api/presence/history?date=2026-11-17')).data.shifts.length,1);
+ await call(db,'/api/member',{name:'Colega',email:'pro@example.com',role:'professional',active:true});
+ assert.equal((await call(db,'/api/presence/history',undefined,'pro')).status,403);
+});

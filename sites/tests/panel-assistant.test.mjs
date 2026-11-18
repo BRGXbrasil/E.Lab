@@ -77,3 +77,14 @@ test('existing Monday agent credential can read the selected board without enabl
  const readItem=async(_,init)=>Response.json({data:{items:[{id:'42',name:'Rotina',board:{id:'18416621523'},column_values:[{id:'color_mm425qpw',text:'A fazer'}]}]}});
  await assert.rejects(()=>completeMonday('42',env,readItem),e=>e.status===503);
 });
+
+test('private Drive sources require actual member identity even while anonymous test access is enabled',async()=>{
+ const env={OPENAI_API_KEY:'fixture',ELAB_DRIVE_INDEXES:JSON.stringify({management:'vs_management',reception:'vs_reception'})};
+ for(const user of [{id:'elab-test-access',email:'teste-sem-login@elab.invalid',role:'admin',testAccess:true},{id:'desk',email:'desk@example.com',role:'reception'}]){
+  const seen=[];const fetcher=async(_,init)=>{const body=JSON.parse(init.body);seen.push(body);return Response.json({output:[{content:[{type:'output_text',text:body.tools?'Procedimento documentado.':JSON.stringify({matches:[]}),annotations:body.tools?[{type:'file_citation',filename:'POP Recepção'}]:[]}]}]})};
+  const result=await handlePanelAssistant({message:'Como organizar uma solicitação incomum?',area:'all'},{env,user,catalog:[],tasks:[]},fetcher);
+  const searches=seen.filter(x=>x.tools?.some(t=>t.type==='file_search'));
+  if(user.testAccess){assert.equal(searches.length,0);assert.notEqual(result.kind,'drive')}
+  else{assert.equal(result.kind,'drive');assert.deepEqual(searches[0].tools[0].vector_store_ids,['vs_reception'])}
+ }
+});

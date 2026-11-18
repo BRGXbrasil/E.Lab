@@ -16,7 +16,7 @@ function ui() {
 test('Procedimentos restores the searchable library with sector and favorites controls', () => {
   const context = ui();
   const page = vm.runInContext('proceduresPage()', context);
-  assert.match(page, /Descreva o procedimento que deseja registrar/);
+  assert.match(page, /Descreva a situação ou sua dúvida/);
   assert.match(page, /Favoritos/);
   assert.match(page, /Filtrar por setor/);
   assert.match(page, /Abertura do Salão/);

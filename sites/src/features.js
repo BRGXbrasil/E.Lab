@@ -46,8 +46,20 @@ export function defaultShift(staff,date) {
  const enabled=scheduledWorkday(date);
  return {id:'shift/'+date+'/'+staff.id,revision:0,data:{staffId:staff.id,date,start:staff.start,toleranceMinutes:60,enabled,status:enabled?'pending':'dayoff'}};
 }
-export async function presenceRoutes(req,env,user,helpers){const {read,save,fail,json}=helpers,db=env.DB,url=new URL(req.url),path=url.pathname;if(!['/api/presence','/api/schedules'].includes(path))return null;
+export async function presenceRoutes(req,env,user,helpers){const {read,save,fail,json}=helpers,db=env.DB,url=new URL(req.url),path=url.pathname;if(!['/api/presence','/api/presence/history','/api/schedules'].includes(path))return null;
  const operate=!user.temporaryReadOnly&&['admin','manager','reception'].includes(user.role),manage=['admin','manager'].includes(user.role);
+ if(path==='/api/presence/history'){
+  if(req.method!=='GET')fail('Método inválido.',405);
+  if(!operate||user.testAccess)fail('A exportação exige acesso identificado da recepção ou gestão.',403);
+  const day=url.searchParams.get('date');
+  if(day!==null&&(!/^\d{4}-\d{2}-\d{2}$/.test(day)||!Number.isFinite(Date.parse(day))||new Date(day).toISOString().slice(0,10)!==day))fail('Data inválida.');
+  const query="SELECT data FROM records WHERE kind='shift'"+(day?" AND json_extract(data,'$.date')=?":"")+" ORDER BY id";
+  const statement=db.prepare(query);
+  const shifts=(await (day?statement.bind(day):statement).all()).results.map(r=>JSON.parse(r.data));
+  const staff=(await db.prepare("SELECT data FROM records WHERE kind='staff'").all()).results.map(r=>JSON.parse(r.data));
+  const names=new Map(staff.map(p=>[p.id,p.name]));
+  return json({shifts:shifts.map(d=>({date:d.date,name:names.get(d.staffId)||d.staffId,start:d.start,status:d.status,arrival:d.checkedInAt,departure:d.checkedOutAt,absence:d.absenceAt,reason:d.reason}))});
+ }
  if(!user.temporaryReadOnly)await seedStaff(db,save);
  const staffRecords=(await db.prepare("SELECT * FROM records WHERE kind='staff' ORDER BY id").all()).results.map(r=>({id:r.id,revision:r.revision,data:JSON.parse(r.data)}));
  const staff=staffRecords.map(r=>({...r.data,days:[...STAFF_WORKDAYS],revision:r.revision}));

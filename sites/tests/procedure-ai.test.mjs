@@ -10,3 +10,9 @@ test('consulta clara responde pelo catálogo mesmo quando o serviço de IA está
  const result=await consultProcedures('Como fazer o fechamento de caixa?',source,{OPENAI_API_KEY:'test'},async()=>new Response('unavailable',{status:503}));
  assert.equal(result.mode,'catalog');assert.deepEqual(result.matches,[{id:'fechamento',title:'Fechamento de Caixa',steps:source[0].steps}]);
 });
+
+test('provider failure is distinguished from a genuine no-match without exposing provider messages',async()=>{
+ const result=await consultProcedures('Como conferir uma mercadoria nova?',docs,{OPENAI_API_KEY:'secret'},async()=>Response.json({error:{code:'invalid_api_key',message:'secret in upstream'}},{status:401}));
+ assert.equal(result.providerStatus,'credentials');assert.equal(result.mode,'catalog');assert.deepEqual(result.matches,[]);assert.doesNotMatch(JSON.stringify(result),/secret/);
+ const noMatch=await consultProcedures('Uma dúvida sem procedimento',docs,{OPENAI_API_KEY:'fixture'},response([]));assert.equal(noMatch.providerStatus,undefined);
+});

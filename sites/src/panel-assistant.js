@@ -1,10 +1,12 @@
-import {areas,canArea,canKind,due,instanceKey} from './core.js';
+import {canUsePrivateDrive} from './integration-status.js';
+import {areas,roleArea,canArea,canKind,due,instanceKey} from './core.js';
 import {consultProcedures} from './procedure-ai.js';
 
 const failPanel=(message,status=400)=>{throw Object.assign(Error(message),{status})};
 const norm=s=>String(s||'').normalize('NFD').replace(/\p{M}/gu,'').toLowerCase().trim();
 const lead=['admin','manager','hr','adm'];
-export const panelAccess=user=>Boolean(user&&!user.temporaryReadOnly&&(lead.includes(user.role)||Object.hasOwn(areas,user.role)));
+export const panelAccess=user=>Boolean(user&&!user.temporaryReadOnly&&(lead.includes(user.role)||roleArea(user.role)));
+export function canCompletePanelMonday(user,env){return Boolean(user&&!user.testAccess&&!user.temporaryReadOnly&&(['admin','manager'].includes(user.role)||(env.ELAB_MONDAY_TEAM_WRITES==='enabled'&&['reception','commercial','controls','cleaning'].includes(user.role))))}
 export function routineTargets(tasks,role,area,date){
  return tasks.filter(t=>canKind(role,'run')&&canArea(role,t.area)&&(area==='all'||area===t.area)&&due(t,date))
   .flatMap(t=>Array.from({length:t.schedule==='three'?3:1},(_,i)=>({id:'run/'+instanceKey(t,date,i+1),task:t,slot:i+1,title:t.title+(t.schedule==='three'?' · '+(i+1)+'ª ocorrência':'')})));
@@ -45,7 +47,7 @@ function safeURL(value){
 }
 function driveIndex(env,role,area){
  try{const map=JSON.parse(env.ELAB_DRIVE_INDEXES||'{}');if(!map||typeof map!=='object')return [];
- const scopes=lead.includes(role)?(area==='all'?['shared','management',...Object.keys(areas)]:['shared','management',area]):['shared',role];
+ const scopes=lead.includes(role)?(area==='all'?['shared','management',...Object.keys(areas)]:['shared','management',area]):['shared',roleArea(role),role];
  return [...new Set(scopes.flatMap(s=>Array.isArray(map[s])?map[s]:[map[s]]).filter(x=>typeof x==='string'&&/^vs_[A-Za-z0-9_-]+$/.test(x)))].slice(0,10);
  }catch{return []}
 }
@@ -110,7 +112,7 @@ export async function completeMonday(itemId,env,fetcher=fetch){
 export async function handlePanelAssistant(body,{env,user,tasks,catalog,date,saveRun},fetcher=fetch){
  const message=typeof body.message==='string'?body.message.trim():'';
  if(!message||message.length>1500)failPanel('Escreva uma mensagem de até 1500 caracteres.');
- const area=body.area==='all'&&lead.includes(user.role)?'all':Object.hasOwn(areas,body.area)&&canArea(user.role,body.area)?body.area:Object.hasOwn(areas,user.role)?user.role:'all';
+ const area=body.area==='all'&&lead.includes(user.role)?'all':Object.hasOwn(areas,body.area)&&canArea(user.role,body.area)?body.area:roleArea(user.role)?roleArea(user.role):'all';
  if(body.web===true)return webAnswer(message,env,fetcher);
  if(completionStatement(message)){
   const isMonday=/\b(monday|pendencia|solicitacao|quadro)\b/.test(norm(message));
@@ -118,7 +120,7 @@ export async function handlePanelAssistant(body,{env,user,tasks,catalog,date,sav
    const board=await panelBoard(env,fetcher);
    if(!board.connected)return {kind:'missing',message:'A conexão com o Monday ainda não está configurada. Abra o quadro para registrar a pendência.'};
    const hits=board.items.filter(x=>norm(x.title).length>=5&&norm(message).includes(norm(x.title))&&x.status!=='Cancelado');
-   if(!['admin','manager'].includes(user.role)&&env.ELAB_MONDAY_TEAM_WRITES!=='enabled')return {kind:'clarify',message:'Por enquanto, conclua a pendência diretamente no Monday.'};
+   if(!canCompletePanelMonday(user,env))return {kind:'clarify',message:'Por enquanto, conclua a pendência diretamente no Monday.'};
    return hits.length===1?{kind:'monday-confirm',message:'Concluir no quadro E.Lab: '+hits[0].title+'?',itemId:hits[0].id}:{kind:'clarify',message:'Escreva o nome exato da pendência do Monday. Não alterei o quadro.'};
   }
   const found=candidates(message,routineTargets(tasks,user.role,area,date));
@@ -130,9 +132,9 @@ export async function handlePanelAssistant(body,{env,user,tasks,catalog,date,sav
   return {kind:'clarify',message:found.length>1?'Encontrei mais de uma rotina possível. Use o botão Registrar na rotina certa. Não fiz nenhuma alteração.':found.length===1?'Encontrei uma possível rotina, mas o relato não identifica a execução com segurança. Escreva o título completo ou use Registrar.':'Não encontrei uma rotina do dia com esse nome neste setor. Se for uma pendência do quadro, escreva “Concluí no Monday” e o nome do item.',options:found.slice(0,6).map(x=>x.title)};
  }
  if(message.length<8)failPanel('Descreva a dúvida com pelo menos 8 caracteres.');
- const indexes=driveIndex(env,user.role,area);
+ const indexes=canUsePrivateDrive(user)?driveIndex(env,user.role,area):[];
  if(indexes.length){const answer=await driveAnswer(message,indexes,env,fetcher);if(answer)return answer}
- const sectors=lead.includes(user.role)?(area==='all'?null:new Set([areas[area],'Gestão'])):new Set([areas[user.role]]);
+ const sectors=lead.includes(user.role)?(area==='all'?null:new Set([areas[area],'Gestão'])):new Set([areas[roleArea(user.role)]]);
  const docs=catalog.filter(p=>!sectors||sectors.has(p.setor));
  const result=await consultProcedures(message,docs,env,fetcher);
  if(result.matches.length)return {kind:'internal',message:'Encontrei estes passos no catálogo de procedimentos do E.Lab.',matches:result.matches,driveConnected:!!indexes.length};

@@ -397,3 +397,26 @@ summary { min-height: 44px; }
 .assistant-filters{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
 .panel-overview{display:grid;grid-template-columns:minmax(280px,.8fr) 1.6fr;gap:20px;margin-bottom:24px}.panel-overview .routine-progress{margin:0;box-shadow:none}.panel-overview .mini-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.panel-overview .mini-stat{padding:0 10px}.panel-assistant-grid{margin:24px 0}.panel-assistant h2{font-size:24px}.panel-assistant .assistant-thread:empty{display:none}.profile-invitation{margin-bottom:24px}.profile-invitation .actions{margin:12px 0}.profile-invitation p{font-size:14px;line-height:1.7;max-width:74ch}.performance-document .kpi-card{border-radius:8px;background:#fcfaf7}.performance-document .page{border:1px solid #e8e1d7;box-shadow:0 5px 24px #241c170c}.performance-document .kpi-title{letter-spacing:.07em}.performance-document h2{font-weight:500;color:#9a742e}.performance-controls{align-items:end}@media(max-width:1100px){.panel-overview{grid-template-columns:1fr}}@media print{.performance-document .page{border:0;box-shadow:none}}
 .monday-board-table{max-height:420px;overflow:auto}.monday-board-table table{min-width:720px}.monday-board-table .monday-group th{color:#775631;background:#f8f1e7;padding-top:15px}.monday-board-table td{vertical-align:middle}.monday-board-table th[scope=row]{min-width:200px}.panel-assistant-grid{grid-template-columns:minmax(260px,.7fr) minmax(0,1.3fr)}@media(max-width:1100px){.panel-assistant-grid{grid-template-columns:1fr}}
+
+/* Visual review: keep the progress copy readable beside the circle and the board usable. */
+body{font-size:1rem}
+.btn,.field,nav button{font-size:.875rem}
+.btn.small,.help,.row p,.meta,.pill,.card-head p{font-size:.875rem}
+.row-title{font-size:1rem}.ring small{font-size:.75rem;letter-spacing:.06em}
+.panel-overview{grid-template-columns:minmax(360px,1fr) minmax(0,1.35fr)}
+.panel-overview .routine-progress{display:grid;grid-template-columns:108px minmax(0,1fr);gap:20px;padding:24px}
+.panel-overview .routine-progress .ring{width:108px;height:108px}
+.panel-overview .routine-progress h2{font-size:1.5rem;line-height:1.2}
+.panel-overview .routine-progress p{font-size:.875rem;line-height:1.5}
+.panel-overview .mini-stats{gap:24px;align-content:center}
+.panel-overview .mini-stat{min-width:0;border:0;padding:0}
+.panel-overview .mini-stat h2{font-size:1rem;line-height:1.3}
+.panel-overview .mini-stat p{font-size:.875rem}
+.panel-assistant textarea{font-size:1rem}
+.monday-board-table table{min-width:640px}
+.monday-board-table th,.monday-board-table td{font-size:.875rem;line-height:1.5;padding:12px}
+.monday-board-table th[scope=row]{min-width:220px}
+.procedure-catalog>.caption{margin-bottom:12px}.procedure-card{border:1px solid var(--line);border-radius:18px;background:var(--paper);padding:18px;margin-bottom:12px}.procedure-card summary{font-size:1rem;line-height:1.5}.procedure-card .pill{display:block;width:fit-content;margin-top:6px}.procedure-card .row-body{min-width:0}
+@media(max-width:1350px){.panel-overview{grid-template-columns:minmax(0,1fr)}.panel-assistant-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:500px){.panel-overview .mini-stats{gap:24px 16px}.panel-overview .routine-progress{padding:20px;grid-template-columns:96px minmax(0,1fr);gap:16px}.panel-overview .routine-progress .ring{width:96px;height:96px}}
+@media(max-width:430px){.panel-overview .routine-progress{padding:18px;grid-template-columns:80px minmax(0,1fr);gap:14px}.panel-overview .routine-progress .ring{width:80px;height:80px}.panel-overview .routine-progress h2{font-size:1.25rem}.panel-overview .routine-progress .ring strong{font-size:1.5rem}.panel-overview .routine-progress .ring small{font-size:.625rem}.panel-overview .mini-stats{grid-template-columns:minmax(0,1fr)}}

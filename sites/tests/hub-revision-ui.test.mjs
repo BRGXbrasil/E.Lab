@@ -25,3 +25,10 @@ test('Central AVEC carrega tipos e histórico sem exigir iniciar uma importaçã
  const {el,context}=ui();vm.runInContext(`view='imports';request=async(path)=>path==='/api/imports'?{schemas:{'0031':{label:'Serviços importados'}},batches:[{id:'batch-1',data:{source:'0031',inserted:2}}],files:[]}:path.startsWith('/api/presence')?{staff:[],shifts:[],events:[]}:{}`,context);
  await vm.runInContext('refreshFeatures()',context);vm.runInContext('render()',context);assert.match(el.innerHTML,/Serviços importados/);assert.match(el.innerHTML,/2 novos/);
 });
+
+test('integration diagnostic arriving after an account change is discarded',async()=>{
+ const {context}=ui();vm.runInContext("request=()=>new Promise(resolve=>{globalThis.resolveIntegration=resolve})",context);
+ const pending=vm.runInContext('loadIntegrationStatus()',context);
+ vm.runInContext("session.id='other';assistantIdentity='user:other';resetPanelAssistant();resolveIntegration({items:[{id:'drive',name:'Previous account'}]})",context);
+ await pending;assert.equal(vm.runInContext('integrationState',context),null);
+});

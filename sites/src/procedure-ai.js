@@ -15,8 +15,12 @@ export async function consultProcedures(question, procedures, env, fetcher=fetch
    input:JSON.stringify({question:question.trim(),catalog:procedures.map(p=>({id:p.id,title:p.title,steps:p.steps||[]}))}),
    text:{format:{type:'json_schema',name:'procedure_matches',strict:true,schema:{type:'object',properties:{matches:{type:'array',items:{type:'object',properties:{id:{type:'string'},steps:{type:'array',items:{type:'integer'}}},required:['id','steps'],additionalProperties:false}}},required:['matches'],additionalProperties:false}}}
   })
- });}catch{return {matches:local,mode:'catalog'}}
- if(!response.ok)return {matches:local,mode:'catalog'};
+ });}catch{return {matches:local,mode:'catalog',providerStatus:'unavailable'}}
+ if(!response.ok){
+  let code='';try{code=(await response.json())?.error?.code||''}catch{}
+  const providerStatus=response.status===401||response.status===403?'credentials':['insufficient_quota','billing_hard_limit_reached'].includes(code)?'quota':response.status===429?'rate_limit':code==='model_not_found'?'model':'unavailable';
+  return {matches:local,mode:'catalog',providerStatus};
+ }
  const payload=await response.json();
  let answer;try{answer=JSON.parse((payload.output||[]).flatMap(o=>o.content||[]).filter(c=>c.type==='output_text').map(c=>c.text).join(''))}catch{throw Object.assign(Error('A IA não retornou uma consulta válida. Consulte o catálogo.'),{status:502})}
  if(!Array.isArray(answer.matches)||answer.matches.length>3)throw Object.assign(Error('Resposta de IA inválida.'),{status:502});

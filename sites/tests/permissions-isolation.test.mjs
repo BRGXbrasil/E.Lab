@@ -26,3 +26,9 @@ test('manual stock entries and exits preserve distinct immutable traces while ca
  assert.equal((await call(db,'/api/stock',{id:'inventory/real-stock',revision:2,type:'in',quantity:3,note:'Recebimento confirmado'},'controls')).status,200);
  const trace=db.sql.prepare("SELECT data FROM records WHERE kind='movement'").all().map(r=>JSON.parse(r.data));assert.equal(trace.length,2);assert.deepEqual(trace.map(r=>[r.before,r.after,r.unit]),[[10,8,'un'],[8,11,'un']]);assert.equal((await call(db,'/api/stock-catalog-activate',{},'controls')).status,403);
 });
+
+test('integration diagnostics require an identified manager and never return credential values',async()=>{
+ const db=await setup();assert.equal((await call(db,'/api/integration-status',undefined,null,{},'enabled')).status,403);
+ assert.equal((await call(db,'/api/integration-status',undefined,'reception')).status,403);
+ const result=await call(db,'/api/integration-status',undefined,'manager');assert.equal(result.status,200);assert.ok(result.data.items.some(x=>x.id==='avec'&&x.automaticSync===false));
+});
