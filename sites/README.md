@@ -65,3 +65,5 @@ Meu Perfil oferece convite e link copiáveis do formulário verificado. O domín
 
 
 A consulta de Procedimentos reconhece títulos do catálogo diretamente e devolve somente etapas cadastradas. Se o serviço de IA não responder, a área continua consultável pelo catálogo; não é inventada uma orientação substituta. A Central AVEC carrega tipos permitidos e histórico ao abrir, e atualiza esse histórico após a consolidação dos arquivos. Sugestões de relacionamento do Comercial não são exibidas no painel de Estoque ou Limpeza.
+
+Saldos históricos negativos são classificados para conferência, sem projeção de posição física ou quantidade sugerida; uma projeção que se torna negativa a partir de um saldo válido continua sinalizando risco de ruptura.

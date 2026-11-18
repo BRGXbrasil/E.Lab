@@ -60,3 +60,8 @@ test('single-measure legacy manual override remains compatible and global manual
  assert.equal(buildStockCoverageReport({activity,policies:[{data:{key:'E.Lab/P',inputs:{consumptionMode:'manual',dailyUse:2}}}]}).rows[0].daily,2);
  assert.throws(()=>buildStockCoverageReport({activity,policies:[{data:{key:'global',inputs:{consumptionMode:'manual',dailyUse:2}}}]}),/global/i);
 });
+
+test('saldo histórico negativo não é tratado como posição física válida para gerar compra',()=>{
+ const r=calculateStockCoverage({balance:-100,outflow:300,periodDays:30,observationRows:10,balanceDate:'2026-11-18',unit:'g'}, {leadDays:10,postArrivalDays:7}, '2026-11-18');
+ assert.equal(r.status,'review');assert.equal(r.coverageDays,null);assert.equal(r.projectedBalance,null);assert.equal(r.orderUnits,null);assert.match(r.quantityReason,/negativo/);
+});

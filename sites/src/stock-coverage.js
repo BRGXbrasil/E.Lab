@@ -19,7 +19,7 @@ export function calculateStockCoverage(row,inputs={},asOfDate=stockBusinessDate(
  const manual=policy.consumptionMode==='manual',daily=manual?policy.dailyUse:mean;
  const reliable=manual||(periodDays>=7&&(row.observationOutflowDays??row.observationRows??row.rows??0)>=3);
  const balanceDate=row.balanceDate||null,projectionDays=validDate(balanceDate)&&validDate(asOfDate)?days(balanceDate,asOfDate):null;
- const balanceKnown=row.balanceKnown!==false&&finite(row.balance)&&projectionDays!==null&&projectionDays>=0;
+ const balanceKnown=row.balanceKnown!==false&&finite(row.balance)&&row.balance>=0&&projectionDays!==null&&projectionDays>=0;
  const projectedBalance=balanceKnown&&daily!==null?round(row.balance-daily*projectionDays):null;
  const coverageDays=projectedBalance!==null&&daily>0?Math.max(0,projectedBalance)/daily:null;
  const projectedBalanceAtArrival=projectedBalance===null?null:round(projectedBalance-daily*leadDays);
@@ -29,7 +29,7 @@ export function calculateStockCoverage(row,inputs={},asOfDate=stockBusinessDate(
  const planningAlert=status==='urgent'||status==='attention';
  const required=postArrivalDays!==null&&daily!==null?round(daily*(leadDays+postArrivalDays)):null;
  const shortage=required!==null&&projectedBalance!==null?Math.max(0,round(required-projectedBalance)):null;
- const blocked=row.policyWarning?row.policyWarning:!balanceKnown?'Saldo ou data a conferir':daily===null?'Consumo a conferir':!reliable?'Série curta: conferir consumo':postArrivalDays===null?'Configurar cobertura':null;
+ const blocked=row.policyWarning?row.policyWarning:finite(row.balance)&&row.balance<0?'Saldo negativo na origem: conferir posição':!balanceKnown?'Saldo ou data a conferir':daily===null?'Consumo a conferir':!reliable?'Série curta: conferir consumo':postArrivalDays===null?'Configurar cobertura':null;
  const orderUnits=blocked?null:daily===0?0:Math.ceil(shortage);
  return {...row,brand:row.brand||'',daily,meanDaily:mean,periodDays,leadDays,postArrivalDays,policy,asOfDate,balanceDate,projectionDays,projectedBalance,projectedBalanceAtArrival,arrival:projectedBalanceAtArrival,coverageDays,required,shortage,status,planningAlert,consumptionSource:manual?'manual':'movements_mean',consumptionReliable:reliable,orderUnits,quantityReason:blocked,projectionNotice:'Estimativa pelos movimentos; não representa contagem física.'};
 }
