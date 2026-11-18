@@ -67,3 +67,5 @@ Meu Perfil oferece convite e link copiáveis do formulário verificado. O domín
 A consulta de Procedimentos reconhece títulos do catálogo diretamente e devolve somente etapas cadastradas. Se o serviço de IA não responder, a área continua consultável pelo catálogo; não é inventada uma orientação substituta. A Central AVEC carrega tipos permitidos e histórico ao abrir, e atualiza esse histórico após a consolidação dos arquivos. Sugestões de relacionamento do Comercial não são exibidas no painel de Estoque ou Limpeza.
 
 Saldos históricos negativos são classificados para conferência, sem projeção de posição física ou quantidade sugerida; uma projeção que se torna negativa a partir de um saldo válido continua sinalizando risco de ruptura.
+
+Cobertura de reposição fixada pelo proprietário em 15 dias após a chegada, com prazo padrão de entrega de 10 dias. Políticas legadas são normalizadas para esse horizonte e a tela deixa de solicitar sua configuração. Avaliação interna e classificação de nível do profissional foram retiradas dos Indicadores; ocupação aguarda o relatório de bloqueios, tratado como indisponibilidade de agenda.

@@ -57,7 +57,7 @@ export async function importRoutes(req,env,user,{read,save,fail,json}){
   const n=Number(value);if(!Number.isFinite(n)||n<0||(key==='packSize'&&n===0))fail('Parâmetro de reposição inválido.');inputs[key]=n;
  }
  if(Object.hasOwn(body.inputs,'consumptionMode'))inputs.consumptionMode=body.inputs.consumptionMode;
- try{if(['global','default','*'].includes(body.key)&&inputs.consumptionMode==='manual')fail('Consumo manual deve ser validado por produto e medida.');validateCoveragePolicy(inputs)}catch(e){fail(e.message)}
+ try{if(['global','default','*'].includes(body.key)&&inputs.consumptionMode==='manual')fail('Consumo manual deve ser validado por produto e medida.');validateCoveragePolicy(inputs);inputs.postArrivalDays=15}catch(e){fail(e.message)}
  if(inputs.consumptionMode==='manual'&&(!body.reason||typeof body.reason!=='string'||body.reason.trim().length<3))fail('Explique o consumo manual conferido.');
  let incoming=old?.data.incoming||[];
  if(Object.hasOwn(body,'incomingQuantity')){

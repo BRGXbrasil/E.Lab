@@ -7,7 +7,7 @@ test('movimentos de estoque exibem medidas separadas e saldo desconhecido',()=>{
 
 test('Estoque exibe cobertura e planejamento com data atual e validação de quantidade',async()=>{
  const {buildStockCoverageReport}=await import('../src/stock-coverage.js');const {el,context}=ui('controls');context.fixture=buildStockCoverageReport({rows:[{key:'A',name:'Produto A',balance:10,balanceDate:'2026-11-18',outflow:30,periodDays:30,observationRows:3,unit:'un'}],now:'2026-11-18T12:00:00Z'});vm.runInContext("stockState.orderReport=fixture;view='replenishment';render()",context);
- for(const value of ['Verificar reposição','18/11/2026','Saldo projetado hoje','Cobertura (dias)','Urgente','Configurar cobertura'])assert.ok(el.innerHTML.includes(value),value);
+ for(const value of ['Verificar reposição','18/11/2026','Saldo projetado hoje','Cobertura (dias)','Urgente','15 dias'])assert.ok(el.innerHTML.includes(value),value);
  assert.ok(!el.innerHTML.includes('data-action="stock-coverage-policy"'));
 });
 
@@ -24,6 +24,6 @@ test('carteira do salão permanece completa quando o comparativo é filtrado',()
  assert.match(portfolio,/Júlia.*Primeira vez/s);
  assert.match(portfolio,/Ana.*Primeira vez/s);
 });
-test('alterar filtros não inventa uma cobertura configurada nem recomenda compra sem validação',async()=>{
- const {buildStockCoverageReport}=await import('../src/stock-coverage.js');const {context}=ui();context.fixture=buildStockCoverageReport({rows:[{key:'B',name:'Produto B',balance:10,balanceDate:'2026-11-18',outflow:60,periodDays:30,observationRows:3,unit:'un'}],now:'2026-11-18T12:00:00Z'});const row=vm.runInContext('stockOrderRows(fixture)[0]',context);assert.equal(row.coverageDays,5);assert.equal(row.orderUnits,null);assert.equal(row.quantityReason,'Configurar cobertura');
+test('filtros preservam a cobertura fixa de 15 dias na quantidade sugerida',async()=>{
+ const {buildStockCoverageReport}=await import('../src/stock-coverage.js');const {context}=ui();context.fixture=buildStockCoverageReport({rows:[{key:'B',name:'Produto B',balance:10,balanceDate:'2026-11-18',outflow:60,periodDays:30,observationRows:3,unit:'un'}],now:'2026-11-18T12:00:00Z'});const row=vm.runInContext('stockOrderRows(fixture)[0]',context);assert.equal(row.coverageDays,5);assert.equal(row.orderUnits,40);assert.equal(row.quantityReason,null);
 });

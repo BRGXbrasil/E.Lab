@@ -11,7 +11,7 @@ export function validateCoveragePolicy(inputs={}) {
  if(policy.consumptionMode!==undefined&&!['mean','manual'].includes(policy.consumptionMode))throw Error('Modo de consumo inválido.');
  if(policy.dailyUse!==undefined&&policy.dailyUse!==null&&(!finite(policy.dailyUse)||policy.dailyUse<0))throw Error('Consumo diário inválido.');
  if(policy.consumptionMode==='manual'&&!finite(policy.dailyUse))throw Error('Informe o consumo diário manual.');
- return policy;
+ return {...policy,postArrivalDays:15};
 }
 export function calculateStockCoverage(row,inputs={},asOfDate=stockBusinessDate()) {
  const policy=validateCoveragePolicy(inputs),leadDays=policy.leadDays??10,postArrivalDays=policy.postArrivalDays??null;

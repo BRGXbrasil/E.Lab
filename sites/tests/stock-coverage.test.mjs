@@ -2,16 +2,16 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {buildStockCoverageReport,calculateStockCoverage,validateCoveragePolicy,stockBusinessDate} from '../src/stock-coverage.js';
 const item=(name,balance,outflow)=>({key:name,name,brand:'',balance,outflow,periodDays:30,observationRows:10,balanceDate:'2026-11-18',balanceKnown:true,unit:'un'});
-test('coverage ranks velocity, warns at 15 days and never invents buying horizon',()=>{
+test('coverage ranks velocity, warns at 15 days and uses fixed 15-day horizon',()=>{
  const report=buildStockCoverageReport({rows:[item('A',10,30),item('B',10,60),item('C',15,30),item('D',16,30)],now:'2026-11-18T12:00:00Z'});
  assert.deepEqual(report.rows.map(r=>r.name),['B','A','C','D']);
  assert.deepEqual(report.rows.map(r=>r.status),['urgent','urgent','attention','ok']);
  assert.equal(report.rows[0].coverageDays,5);assert.equal(report.rows[0].projectedBalanceAtArrival,-10);
- assert.equal(report.rows[0].orderUnits,null);assert.equal(report.postArrivalDays,null);
+ assert.equal(report.rows[0].orderUnits,40);assert.equal(report.postArrivalDays,15);
 });
 test('quantity covers delivery consumption plus explicit validated post-arrival horizon',()=>{
  const r=calculateStockCoverage(item('B',10,60),{postArrivalDays:7},'2026-11-18');
- assert.equal(r.required,34);assert.equal(r.orderUnits,24);
+ assert.equal(r.required,50);assert.equal(r.orderUnits,40);
  assert.equal(calculateStockCoverage(item('zero',1,0),{postArrivalDays:7},'2026-11-18').orderUnits,0);
  assert.equal(calculateStockCoverage({...item('tiny',1,3),periodDays:2,observationRows:1},{postArrivalDays:7},'2026-11-18').orderUnits,null);
 });
@@ -53,7 +53,7 @@ test('manual consumption is scoped to its measure; ambiguous legacy product over
  report=buildStockCoverageReport({activity,policies:[legacy,scoped],now:'2026-11-18T12:00:00Z'});
  const unit=report.rows.find(r=>r.measureUnit==='un'),grams=report.rows.find(r=>r.measureUnit==='g');
  assert.equal(unit.productKey,'E.Lab/P');assert.equal(unit.key,'E.Lab/P');assert.equal(unit.policyKey,'E.Lab/P::un');
- assert.equal(unit.daily,2);assert.equal(unit.orderUnits,28);assert.equal(unit.policy.reason,'Em unidades conferido');assert.equal(grams.daily,10);assert.equal(grams.orderUnits,null);
+ assert.equal(unit.daily,2);assert.equal(unit.orderUnits,44);assert.equal(unit.policy.reason,'Em unidades conferido');assert.equal(grams.daily,10);assert.equal(grams.orderUnits,null);
 });
 test('single-measure legacy manual override remains compatible and global manual policy is rejected',()=>{
  const activity=[{key:'E.Lab/P',name:'P',rows:10,from:'2026-10-20',to:'2026-11-18',balanceKnown:true,measures:{un:{net:10,out:30}}}];
@@ -64,4 +64,12 @@ test('single-measure legacy manual override remains compatible and global manual
 test('saldo histórico negativo não é tratado como posição física válida para gerar compra',()=>{
  const r=calculateStockCoverage({balance:-100,outflow:300,periodDays:30,observationRows:10,balanceDate:'2026-11-18',unit:'g'}, {leadDays:10,postArrivalDays:7}, '2026-11-18');
  assert.equal(r.status,'review');assert.equal(r.coverageDays,null);assert.equal(r.projectedBalance,null);assert.equal(r.orderUnits,null);assert.match(r.quantityReason,/negativo/);
+});
+
+test('coverage after arrival is always 15 days even with older product policies',()=>{
+ const row=item('A',10,30);
+ for(const inputs of [{},{postArrivalDays:null},{postArrivalDays:7},{postArrivalDays:30}]) {
+  const result=calculateStockCoverage(row,inputs,'2026-11-18');
+  assert.equal(result.postArrivalDays,15);assert.equal(result.required,25);assert.equal(result.orderUnits,15);
+ }
 });

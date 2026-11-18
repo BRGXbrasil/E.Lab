@@ -14,7 +14,7 @@ test('cada setor operacional permite registrar ocorrências e executar rotinas s
 test('gestão salva a política global sem exigir consumo manual de um produto',async()=>{
  const {context}=ui();vm.runInContext(`globalThis.policyCalls=[];modal=(...args)=>{globalThis.policySave=args.at(-1)};request=async(path,body)=>{policyCalls.push({path,body});return {}};refreshFeatures=async()=>{};stockCoveragePolicyModal('global')`,context);
  await vm.runInContext("policySave({leadDays:'10',postArrivalDays:'7',consumptionMode:'mean',reason:''})",context);
- const data=vm.runInContext('policyCalls[0]',context);assert.equal(data.path,'/api/stock-policy');assert.equal(data.body.inputs.postArrivalDays,7);assert.equal(data.body.inputs.dailyUse,undefined);
+ const data=vm.runInContext('policyCalls[0]',context);assert.equal(data.path,'/api/stock-policy');assert.equal(data.body.inputs.postArrivalDays,15);assert.equal(data.body.inputs.dailyUse,undefined);
 });
 
 test('painel Estoque não apresenta sugestões de relacionamento do Comercial',()=>{
