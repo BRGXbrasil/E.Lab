@@ -1,6 +1,6 @@
 // Public invitation link selected by E.Lab.
 export const PROFILE_CANONICAL_URL = 'https://elab.boutique/meu-perfil';
-export const PROFILE_FORM_URL = 'https://abre.ai/meuperfilelab';
+export const PROFILE_FORM_URL = 'https://abre.ai/perfilelab';
 
 export function validatedProfileFormUrl(value = PROFILE_FORM_URL) {
  if (![PROFILE_FORM_URL, PROFILE_CANONICAL_URL].includes(value)) {
