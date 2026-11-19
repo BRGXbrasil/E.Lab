@@ -32,3 +32,9 @@ test('integration diagnostics require an identified manager and never return cre
  assert.equal((await call(db,'/api/integration-status',undefined,'reception')).status,403);
  const result=await call(db,'/api/integration-status',undefined,'manager');assert.equal(result.status,200);assert.ok(result.data.items.some(x=>x.id==='avec'&&x.automaticSync===false));
 });
+
+test('Indicators data requires an identified authorized account while public test access remains operational',async()=>{
+ const db=await setup();assert.equal((await call(db,'/api/results',undefined,null,{},'enabled')).status,403);
+ assert.equal((await call(db,'/api/results',undefined,'manager',{},'enabled')).status,200);
+ assert.equal((await call(db,'/api/bootstrap',undefined,null,{},'enabled')).status,200);
+});

@@ -7,7 +7,7 @@ function ui(role='admin'){
  vm.runInContext(`C=${read('src/catalog.json')};session={id:'owner',name:'Owner',role:'${role}'};date='2026-11-17';presenceState={staff:[],shifts:[]};view='panel';render()`,context);return {el,context};
 }
 test('painel abre Todos incluindo Comercial, sem indicadores de performance ou treinamento',()=>{const {el}=ui();assert.match(el.innerHTML,/value="all" selected/);assert.match(el.innerHTML,/value="commercial"/);assert.ok(!el.innerHTML.includes('Indicadores do salão'));assert.ok(!el.innerHTML.includes('data-id="training"'));assert.match(el.innerHTML,/Indicadores/);assert.match(el.innerHTML,/Disponibilidade x Presentes/)});
-test('quadro é interno e assistente tem texto objetivo inclusive no período de teste',()=>{const {el,context}=ui();vm.runInContext("session.testAccess=true;assistantState.board={connected:true,items:[{id:'1',title:'Rotina do time',owner:'',due:'',priority:'Urgente',status:'A fazer',url:'https://brgxbrasil.monday.com/boards/18416621523'}]};render()",context);assert.match(el.innerHTML,/Rotina do time/);assert.ok(!el.innerHTML.includes('Abrir quadro'));assert.match(el.innerHTML,/panelAssistantForm/);assert.ok(!el.innerHTML.includes('Entrar para usar a assistente'))});
+test('quadro Monday fica oculto temporariamente e assistente permanece disponível',()=>{const {el,context}=ui();vm.runInContext("session.testAccess=true;assistantState.board={connected:true,items:[{id:'1',title:'Rotina do time',owner:'',due:'',priority:'Urgente',status:'A fazer',url:'https://brgxbrasil.monday.com/boards/18416621523'}]};render()",context);assert.ok(!el.innerHTML.includes('Rotina do time'));assert.ok(!el.innerHTML.includes('Quadro E.Lab'));assert.ok(!el.innerHTML.includes('Abrir quadro'));assert.match(el.innerHTML,/panelAssistantForm/);assert.ok(!el.innerHTML.includes('Entrar para usar a assistente'))});
 test('perfil oferece link e convite copiáveis',()=>{const {el,context}=ui();vm.runInContext("view='clients';render()",context);assert.match(el.innerHTML,/Copiar link/);assert.match(el.innerHTML,/Copiar convite/);assert.match(el.innerHTML,/antes da sua visita/)});
 test('cada setor operacional permite registrar ocorrências e executar rotinas sem configurar catálogo',()=>{for(const role of ['reception','controls','cleaning','commercial']){const {el}=ui(role);assert.match(el.innerHTML,/Novo registro/);assert.ok(!el.innerHTML.includes('＋ Configurar rotina'));assert.ok(!el.innerHTML.includes('data-action="member"'))}});
 
@@ -31,4 +31,15 @@ test('integration diagnostic arriving after an account change is discarded',asyn
  const pending=vm.runInContext('loadIntegrationStatus()',context);
  vm.runInContext("session.id='other';assistantIdentity='user:other';resetPanelAssistant();resolveIntegration({items:[{id:'drive',name:'Previous account'}]})",context);
  await pending;assert.equal(vm.runInContext('integrationState',context),null);
+});
+
+test('public test access disables Indicators, rejects its hash and does not fetch performance data',async()=>{
+ const {context,el}=ui();vm.runInContext("session.testAccess=true;view='results';render()",context);
+ assert.equal(vm.runInContext('view',context),'panel');assert.match(el.innerHTML,/disabled[^>]*data-action="navigate" data-id="results"/);
+ vm.runInContext("globalThis.called=[];resultState.services=[{private:true}];request=async(path)=>{called.push(path);return path.startsWith('/api/presence')?{staff:[],shifts:[],events:[]}:{}}",context);
+ await vm.runInContext('refreshFeatures()',context);assert.ok(!vm.runInContext("called.includes('/api/results')",context));assert.equal(vm.runInContext('resultState.services.length',context),0);
+});
+
+test('hidden Monday board does not load its provider automatically',async()=>{
+ const {context}=ui();vm.runInContext("globalThis.boardCalls=0;request=async()=>{boardCalls++;return {connected:true,items:[]}}",context);await vm.runInContext('refreshPanelBoard()',context);assert.equal(vm.runInContext('boardCalls',context),0);
 });

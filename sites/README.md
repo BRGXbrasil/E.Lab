@@ -75,3 +75,7 @@ Cobertura de reposição fixada pelo proprietário em 15 dias após a chegada, c
 O cadastro operacional contempla Recepção, Comercial, Estoque, Limpeza, Copa, Manobristas, Manutenção, Parceiros Técnicos e Gestão. Os setores adicionais começam sem rotinas inventadas; a Gestão define frequência e responsáveis. O papel professional é mapeado ao setor técnico e preserva seus acessos legados. Operadores novos registram e executam apenas na própria área, sem configurar catálogos nem escrever no Monday.
 
 A revisão visual corrige a largura do resumo do círculo, a distribuição dos blocos e a leitura do quadro Monday, e apresenta os POPs em cartões. O diagnóstico de integrações exige Gestão identificada e distingue configuração de conexão comprovada. Fontes privadas do Drive não são consultadas pelo acesso anônimo de teste. Falha do provedor de IA aparece separada de uma busca concluída sem correspondência. Nenhuma conta real é simulada ou criada para comprovar autenticação.
+
+## Acesso público temporário — 19/11/2026
+
+O Hub permanece público, sem login durante os testes. Indicadores fica esmaecido e desabilitado para esse acesso; o hash direto retorna ao Painel, o frontend deixa de buscar performance e /api/results exige identidade autorizada. O quadro Monday está temporariamente oculto e sem carregamento automático; credenciais e integração foram preservadas.

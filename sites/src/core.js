@@ -198,3 +198,5 @@ export function performanceReport(records, from, to, professional = '') {
     firstObserved:attended.filter(c=>c.first>=from).length,unidentifiedRows,portfolio,
     professionals:[...professionals.values()].map(p=>({...p,clients:p.clients.size,visits:p.visits.size,ticketCents:p.visits.size?Math.round(p.amountCents/p.visits.size):null})).sort((a,b)=>b.services-a.services)};
 }
+
+export function canViewIndicators(user){return Boolean(user&&!user.testAccess&&!user.temporaryReadOnly&&['admin','manager','reception','commercial'].includes(user.role))}
