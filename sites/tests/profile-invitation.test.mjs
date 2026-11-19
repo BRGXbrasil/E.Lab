@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { PROFILE_FORM_URL, PROFILE_CANONICAL_URL, profileInvitation, validatedProfileFormUrl } from '../src/profile-invitation.js';
 
-test('invitation uses the publicly verified profile form and preserves canonical target', () => {
- assert.equal(PROFILE_FORM_URL, 'https://brgxbrasil.github.io/E.Lab/meu-perfil/');
+test('invitation uses the selected public profile link and preserves canonical target', () => {
+ assert.equal(PROFILE_FORM_URL, 'https://abre.ai/meuperfilelab');
  assert.equal(PROFILE_CANONICAL_URL, 'https://elab.boutique/meu-perfil');
  const invitation = profileInvitation();
  assert.equal(invitation.url, PROFILE_FORM_URL);
