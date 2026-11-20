@@ -43,3 +43,17 @@ test('public test access disables Indicators, rejects its hash and does not fetc
 test('hidden Monday board does not load its provider automatically',async()=>{
  const {context}=ui();vm.runInContext("globalThis.boardCalls=0;request=async()=>{boardCalls++;return {connected:true,items:[]}}",context);await vm.runInContext('refreshPanelBoard()',context);assert.equal(vm.runInContext('boardCalls',context),0);
 });
+
+test('history download matches date/type/search filters and routine sector permissions',()=>{
+ const {context,el}=ui('reception');
+ vm.runInContext(`records=[
+ {id:'visible',kind:'run',updatedBy:'recepcao',updatedAt:'2026-11-20T12:00:00Z',data:{title:'Confirmar agenda',area:'reception',date:'2026-11-19',status:'partial',responsible:'Bruna',note:'Revisar'}},
+ {id:'other-sector',kind:'run',data:{title:'Comercial',area:'commercial',date:'2026-11-19'}},
+ {id:'old',kind:'entry',data:{title:'Agenda antiga',area:'reception',date:'2026-10-01'}}
+ ];globalThis.downloads=[];downloadCSV=(rows,name)=>downloads.push({rows,name});historyType='operations';historyFrom='2026-11-01';historyTo='2026-11-19';search='confirmar';view='history';render();exportHistory('all')`,context);
+ assert.match(el.innerHTML,/data-action="history-export"/);
+ const filtered=vm.runInContext('downloads[0]',context);assert.equal(filtered.rows.length,2);assert.equal(filtered.rows[1][3],'Confirmar agenda');assert.equal(filtered.rows[1][4],'Parcial');assert.equal(filtered.rows[1][6],'recepcao');assert.match(filtered.name,/\.csv$/);
+ vm.runInContext("area='reception';exportHistory('routines')",context);
+ const routines=vm.runInContext('downloads[1].rows',context);assert.equal(routines.length,2);assert.equal(routines[1][10],'visible');
+ vm.runInContext("records=[];toast=()=>{};exportHistory('all')",context);assert.equal(vm.runInContext('downloads.length',context),2);
+});
