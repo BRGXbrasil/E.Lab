@@ -6,7 +6,7 @@ test('leitor não recebe controles de escrita e estoque não recebe caixa',()=>{
 test('o módulo JavaScript realmente publicado compila com o leitor e os novos fluxos',()=>{const html=read('src/ui.js'),parsed=JSON.parse(html.slice('export const HTML='.length).trim().replace(/;$/,'')),match=parsed.match(/<script type="module">([\s\S]*?)<\/script>/);assert.ok(match);assert.doesNotThrow(()=>new vm.Script('(async()=>{'+match[1]+'})'));assert.ok(parsed.includes('/assets/fflate.js'));assert.ok(!parsed.includes('__FEATURE_CLIENT__'))});
 test('received profiles render all answers and consent as escaped text',()=>{
  const {el,context}=ui('reception');vm.runInContext(`submittedProfiles=[{id:'fake',created_at:'2026-11-17T13:00:00Z',submission:{answers:{name:'<img src=x onerror=alert(1)>',ritual:'café coado',care:'Atenção fictícia'},consentContact:false,consentPrivacy:true}}];view='clients';render()`,context);
- assert.ok(el.innerHTML.includes('&lt;img src=x'));assert.ok(!el.innerHTML.includes('<img src=x'));assert.ok(el.innerHTML.includes('café coado'));assert.ok(el.innerHTML.includes('Atenção fictícia'));assert.ok(el.innerHTML.includes('Não autorizado'));assert.ok(el.innerHTML.includes('Atualizar perfis'));assert.ok(el.innerHTML.includes('/meu-perfil/'));
+ assert.ok(el.innerHTML.includes('&lt;img src=x'));assert.ok(!el.innerHTML.includes('<img src=x'));assert.ok(el.innerHTML.includes('café coado'));assert.ok(el.innerHTML.includes('Atenção fictícia'));assert.ok(el.innerHTML.includes('Não autorizado'));assert.ok(el.innerHTML.includes('Atualizar perfis'));assert.ok(el.innerHTML.includes('https://abre.ai/perfilelab'));
 });
 test('revoked session clears private answers and late profile requests cannot restore them',async()=>{
  const {el,context}=ui('reception');

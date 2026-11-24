@@ -4,6 +4,7 @@ const cookieName='__Host-elab-assistant';
 const lifetime=30*24*60*60;
 async function sessionId(token){const hash=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(token));return 'assistant-session/'+Array.from(new Uint8Array(hash),n=>n.toString(16).padStart(2,'0')).join('')}
 export async function assistantSession(req,db,user){
+ if(user?.authProvider==='supabase'&&!user.temporaryReadOnly)return {identity:'user:'+user.id};
  const authenticated=req.headers.get('oai-authenticated-user-id');
  if(authenticated&&!user.temporaryReadOnly)return {identity:'user:'+authenticated};
  const token=req.headers.get('cookie')?.split(';').map(s=>s.trim()).find(s=>s.startsWith(cookieName+'='))?.slice(cookieName.length+1);

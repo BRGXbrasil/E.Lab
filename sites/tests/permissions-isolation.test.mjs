@@ -38,3 +38,18 @@ test('Indicators data requires an identified authorized account while public tes
  assert.equal((await call(db,'/api/results',undefined,'manager',{},'enabled')).status,200);
  assert.equal((await call(db,'/api/bootstrap',undefined,null,{},'enabled')).status,200);
 });
+
+test('Supabase Pages identity takes priority over public test mode and preserves sector enforcement',async t=>{
+ const db=database(),originalFetch=globalThis.fetch;
+ t.after(()=>{globalThis.fetch=originalFetch});
+ globalThis.fetch=async()=>Response.json({id:'945d8b25-1076-4bf0-b383-0d921fe22774',email:'reception@example.com',name:'Recepção',role:'reception'});
+ const headers={origin:'https://brgxbrasil.github.io',authorization:'Bearer verified-session'};
+ const boot=await call(db,'/api/bootstrap',undefined,null,headers,'enabled');
+ assert.equal(boot.status,200);assert.equal(boot.data.user.role,'reception');assert.equal(boot.data.user.testAccess,undefined);assert.equal(boot.data.assistantIdentity,'user:supabase:945d8b25-1076-4bf0-b383-0d921fe22774');assert.equal(boot.headers.get('access-control-allow-origin'),'https://brgxbrasil.github.io');
+ const post=(kind,data)=>worker.fetch(new Request('https://elab.test/api/save',{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({kind,data})}),{DB:db,ELAB_TEST_ACCESS:'enabled'});
+ assert.equal((await post('entry',{title:'Registro autorizado',area:'reception',status:'open'})).status,200);
+ assert.equal((await post('routine',{title:'Configuração',area:'reception',schedule:'daily'})).status,403);
+ assert.equal((await post('entry',{title:'Outro setor',area:'commercial',status:'open'})).status,403);
+ globalThis.fetch=async()=>Response.json({error:'invalid'},{status:401});
+ const rejected=await call(db,'/api/bootstrap',undefined,null,headers,'enabled');assert.equal(rejected.status,401);
+});
